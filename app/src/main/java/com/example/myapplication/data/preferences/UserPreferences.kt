@@ -47,6 +47,13 @@ class UserPreferences(context: Context) {
     fun getLastWeeklyShieldWeek(): String? = preferences.getString(KEY_LAST_WEEKLY_SHIELD_WEEK, null)
     fun setLastWeeklyShieldWeek(value: String) = preferences.edit().putString(KEY_LAST_WEEKLY_SHIELD_WEEK, value).apply()
 
+    fun getLastStreakStatus(): String? = preferences.getString(KEY_LAST_STREAK_STATUS, null)
+    fun setLastStreakStatus(value: String?) {
+        preferences.edit().apply {
+            if (value == null) remove(KEY_LAST_STREAK_STATUS) else putString(KEY_LAST_STREAK_STATUS, value)
+        }.apply()
+    }
+
     companion object {
         private const val PREFS_NAME = "user_preferences"
         private const val KEY_USER_NAME = "user_name"
@@ -58,5 +65,6 @@ class UserPreferences(context: Context) {
         private const val KEY_WEEKLY_SHIELDS = "weekly_shields"
         private const val KEY_STREAK_SHIELDS = "streak_shields"
         private const val KEY_LAST_WEEKLY_SHIELD_WEEK = "last_weekly_shield_week"
+        private const val KEY_LAST_STREAK_STATUS = "last_streak_status"
     }
 }
