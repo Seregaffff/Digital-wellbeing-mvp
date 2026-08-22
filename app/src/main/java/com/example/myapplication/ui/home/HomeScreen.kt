@@ -30,11 +30,7 @@ import com.example.myapplication.data.repository.SavingsCategory
 import kotlinx.coroutines.delay
 
 @Composable
-fun HomeScreen(
-    viewModel: HomeViewModel,
-    userName: String,
-    onOpenUsageSettings: () -> Unit
-) {
+fun HomeScreen(viewModel: HomeViewModel, userName: String, onOpenUsageSettings: () -> Unit) {
     val state by viewModel.uiState.collectAsState()
 
     LaunchedEffect(Unit) {
@@ -44,27 +40,8 @@ fun HomeScreen(
         }
     }
 
-    LazyColumnContent(
-        state = state,
-        userName = userName,
-        onAllocate = viewModel::allocateSavings,
-        onRefresh = viewModel::loadUsage,
-        onOpenUsageSettings = onOpenUsageSettings
-    )
-}
-
-@Composable
-private fun LazyColumnContent(
-    state: HomeUiState,
-    userName: String,
-    onAllocate: (SavingsCategory) -> Unit,
-    onRefresh: () -> Unit,
-    onOpenUsageSettings: () -> Unit
-) {
     androidx.compose.foundation.lazy.LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 20.dp),
+        modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
         contentPadding = PaddingValues(top = 20.dp, bottom = 32.dp)
     ) {
@@ -79,37 +56,19 @@ private fun LazyColumnContent(
                     fontWeight = FontWeight.Bold
                 )
                 Text("Посмотрим, как проходит твой день?")
-                ScreenTimeCard(totalMinutes = state.totalScreenTime)
-                SavedTimeCard(
-                    todaySavedMinutes = state.savedTimeMinutes,
-                    totalSavedMinutes = state.totalSavedTimeMinutes
-                )
-                StreakCard(
-                    currentStreak = state.currentStreak,
-                    totalShields = state.totalShields,
-                    streakShields = state.streakShields,
-                    weeklyShield = state.weeklyShield
-                )
+                ScreenTimeCard(state.totalScreenTime)
+                SavedTimeCard(state.savedTimeMinutes, state.totalSavedTimeMinutes)
+                StreakCard(state.currentStreak, state.totalShields, state.streakShields, state.weeklyShield)
                 state.achievementMessage?.let { AchievementNotice(it) }
-                SavingsPotCard(
-                    state = state,
-                    onAllocate = onAllocate
-                )
+                SavingsPotCard(state, viewModel::allocateSavings)
                 SleepConversionCard(state.totalSavedTimeMinutes)
 
-                Text(
-                    text = "Твои приложения",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-
+                Text("Твои приложения", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 if (state.apps.isEmpty()) {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant
-                        )
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                     ) {
                         Column(modifier = Modifier.padding(20.dp)) {
                             Text("Пока нет отслеживаемых приложений", fontWeight = FontWeight.Bold)
@@ -120,21 +79,12 @@ private fun LazyColumnContent(
                 } else {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         state.apps.forEach { usage ->
-                            AppUsageCard(
-                                appName = usage.app.appName,
-                                usedMinutes = usage.usedMinutes,
-                                limitMinutes = usage.app.dailyLimitMinutes
-                            )
+                            AppUsageCard(usage.app.appName, usage.usedMinutes, usage.app.dailyLimitMinutes)
                         }
                     }
                 }
-
-                Button(onClick = onRefresh, modifier = Modifier.fillMaxWidth()) {
-                    Text("Обновить данные")
-                }
-                Button(onClick = onOpenUsageSettings, modifier = Modifier.fillMaxWidth()) {
-                    Text("Настройки доступа")
-                }
+                Button(onClick = viewModel::loadUsage, modifier = Modifier.fillMaxWidth()) { Text("Обновить данные") }
+                Button(onClick = onOpenUsageSettings, modifier = Modifier.fillMaxWidth()) { Text("Настройки доступа") }
             }
         }
     }
@@ -142,8 +92,6 @@ private fun LazyColumnContent(
 
 @Composable
 private fun SavedTimeCard(todaySavedMinutes: Int, totalSavedMinutes: Int) {
-    val todayText = formatTime(todaySavedMinutes)
-    val totalText = formatTime(totalSavedMinutes)
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
@@ -151,9 +99,9 @@ private fun SavedTimeCard(todaySavedMinutes: Int, totalSavedMinutes: Int) {
     ) {
         Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("Вы возвращаете себе", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text(todayText, fontSize = 32.sp, fontWeight = FontWeight.Bold)
+            Text(formatTime(todaySavedMinutes), fontSize = 32.sp, fontWeight = FontWeight.Bold)
             Text("потенциально сегодня")
-            Text("Всего в копилке: $totalText", fontWeight = FontWeight.SemiBold)
+            Text("Всего в копилке: ${formatTime(totalSavedMinutes)}", fontWeight = FontWeight.SemiBold)
             Text(
                 "Сегодняшнее значение меняется вместе с использованием. В копилку попадает только завершённое время.",
                 style = MaterialTheme.typography.bodySmall
@@ -163,12 +111,7 @@ private fun SavedTimeCard(todaySavedMinutes: Int, totalSavedMinutes: Int) {
 }
 
 @Composable
-private fun StreakCard(
-    currentStreak: Int,
-    totalShields: Int,
-    streakShields: Int,
-    weeklyShield: Boolean
-) {
+private fun StreakCard(currentStreak: Int, totalShields: Int, streakShields: Int, weeklyShield: Boolean) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
@@ -182,12 +125,9 @@ private fun StreakCard(
                 fontWeight = FontWeight.Bold
             )
             Text("🛡️ Щитов: $totalShields")
+            Text("Недельный: ${if (weeklyShield) "1" else "0"} · за стрики: $streakShields", style = MaterialTheme.typography.bodySmall)
             Text(
-                "Недельный: ${if (weeklyShield) "1" else "0"} · за стрики: $streakShields",
-                style = MaterialTheme.typography.bodySmall
-            )
-            Text(
-                "Если день завершён без превышения лимита — серия продолжается. При превышении щит защищает серию и сгорает.",
+                "День без превышения продолжает серию. При превышении щит защищает серию и сгорает.",
                 style = MaterialTheme.typography.bodySmall
             )
         }
@@ -226,7 +166,7 @@ private fun SavingsPotCard(state: HomeUiState, onAllocate: (SavingsCategory) -> 
                 title = "Книги",
                 allocatedMinutes = state.booksSavingsMinutes,
                 targetMinutes = SavingsCategory.BOOKS.targetMinutes,
-                description = "≈ ${state.booksSavingsMinutes * 0.8f .toInt()} страниц",
+                description = "≈ ${(state.booksSavingsMinutes / 1.25f).toInt()} страниц",
                 enabled = state.availableSavingsMinutes >= 30,
                 onAllocate = { onAllocate(SavingsCategory.BOOKS) }
             )
@@ -249,10 +189,7 @@ private fun SavingsPotCard(state: HomeUiState, onAllocate: (SavingsCategory) -> 
                 onAllocate = { onAllocate(SavingsCategory.WALKS) }
             )
 
-            Text(
-                "🎯 Задание недели: конвертируй 3 часа в прогулки — ${state.weeklyWalkMinutes}/180 мин",
-                fontWeight = FontWeight.SemiBold
-            )
+            Text("🎯 Задание недели: конвертируй 3 часа в прогулки — ${state.weeklyWalkMinutes}/180 мин", fontWeight = FontWeight.SemiBold)
             LinearProgressIndicator(
                 progress = { (state.weeklyWalkMinutes / 180f).coerceIn(0f, 1f) },
                 modifier = Modifier.fillMaxWidth()
@@ -285,17 +222,14 @@ private fun SavingsGoalRow(
             progress = { (allocatedMinutes / targetMinutes.toFloat()).coerceIn(0f, 1f) },
             modifier = Modifier.fillMaxWidth()
         )
-        Text(
-            "$description · ${allocatedMinutes}/${targetMinutes} мин",
-            style = MaterialTheme.typography.bodySmall
-        )
+        Text("$description · ${allocatedMinutes}/${targetMinutes} мин", style = MaterialTheme.typography.bodySmall)
     }
 }
 
 @Composable
 private fun SleepConversionCard(totalSavedMinutes: Int) {
     val sleepBlocks = totalSavedMinutes / 30
-    val weeklySleepHours = if (sleepBlocks > 0) sleepBlocks * 0.5f * 7f else 0f
+    val weeklySleepHours = sleepBlocks * 0.5f * 7f
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -305,7 +239,7 @@ private fun SleepConversionCard(totalSavedMinutes: Int) {
             Text("😴 Ещё один вариант", fontWeight = FontWeight.Bold)
             Text("Если ложиться на 30 минут раньше, за неделю можно вернуть до 3,5 часа сна.")
             if (totalSavedMinutes >= 30) {
-                Text("Твоя копилка уже содержит $sleepBlocks × 30 минут — потенциально ${formatDecimalHours(weeklySleepHours)} сна за неделю.")
+                Text("Из твоей копилки это уже ${sleepBlocks} × 30 минут — до ${formatDecimalHours(weeklySleepHours)} сна за неделю.")
             }
         }
     }
@@ -318,10 +252,7 @@ private fun ScreenTimeCard(totalMinutes: Int) {
         shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text("Сегодня")
             Spacer(modifier = Modifier.height(8.dp))
             Text(formatTime(totalMinutes), fontSize = 42.sp, fontWeight = FontWeight.Bold)
