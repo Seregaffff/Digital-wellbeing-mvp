@@ -2,6 +2,7 @@ package com.example.myapplication.data.repository
 
 import com.example.myapplication.data.local.SavingsAllocationDao
 import com.example.myapplication.data.local.SavingsAllocationEntity
+import com.example.myapplication.data.preferences.UserPreferences
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -24,7 +25,8 @@ data class SavingsSnapshot(
 
 class SavingsRepository(
     private val allocationDao: SavingsAllocationDao,
-    private val savedTimeRepository: SavedTimeRepository
+    private val savedTimeRepository: SavedTimeRepository,
+    private val userPreferences: UserPreferences
 ) {
 
     suspend fun getSnapshot(): SavingsSnapshot {
@@ -57,6 +59,10 @@ class SavingsRepository(
                 minutes = safeMinutes
             )
         )
+
+        if (category == SavingsCategory.WALKS && getSnapshot().weeklyWalkMinutes >= 180) {
+            userPreferences.unlockAchievement("walks_weekly_challenge")
+        }
         return true
     }
 
