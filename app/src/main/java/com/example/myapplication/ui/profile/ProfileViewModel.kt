@@ -8,7 +8,6 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.myapplication.data.local.TrackedAppEntity
 import com.example.myapplication.data.preferences.UserPreferences
-import com.example.myapplication.data.repository.AchievementDefinition
 import com.example.myapplication.data.repository.GamificationRepository
 import com.example.myapplication.data.repository.UsageRepository
 import kotlinx.coroutines.Dispatchers
@@ -18,10 +17,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-data class InstalledAppUi(
-    val packageName: String,
-    val appName: String
-)
+data class InstalledAppUi(val packageName: String, val appName: String)
 
 data class ProfileAchievementUi(
     val key: String,
@@ -46,8 +42,7 @@ data class ProfileUiState(
     val totalSavedMinutes: Int = 0,
     val showAllAchievements: Boolean = false
 ) {
-    val canAddApp: Boolean
-        get() = trackedApps.size < MAX_TRACKED_APPS
+    val canAddApp: Boolean get() = trackedApps.size < MAX_TRACKED_APPS
 }
 
 private const val MAX_TRACKED_APPS = 3
@@ -71,17 +66,15 @@ class ProfileViewModel(
         viewModelScope.launch {
             val gamification = withContext(Dispatchers.IO) { gamificationRepository.sync() }
             val trackedApps = withContext(Dispatchers.IO) { repository.getTrackedApps() }
-            val definitions = gamificationRepository.getAchievements()
-            val achievements = definitions.map { definition ->
-                ProfileAchievementUi(
-                    key = definition.key,
-                    title = definition.title,
-                    description = definition.description,
-                    unlocked = definition.key == "first_steps"
-                        ? userPreferences.isFirstStepsAchievementUnlocked()
-                        : gamificationRepository.isAchievementUnlocked(definition.key)
-                )
+            val achievements = gamificationRepository.getAchievements().map { definition ->
+                val unlocked = if (definition.key == "first_steps") {
+                    userPreferences.isFirstStepsAchievementUnlocked()
+                } else {
+                    gamificationRepository.isAchievementUnlocked(definition.key)
+                }
+                ProfileAchievementUi(definition.key, definition.title, definition.description, unlocked)
             }
+
             _uiState.value = _uiState.value.copy(
                 trackedApps = trackedApps,
                 achievements = achievements,
@@ -198,8 +191,8 @@ class ProfileViewModel(
             }
             repository.updateApp(app.copy(dailyLimitMinutes = safeMinutes))
             userPreferences.unlockFirstStepsAchievement()
-            loadProfileData()
             _uiState.value = _uiState.value.copy(isLimitDialogVisible = false, editingAppId = null)
+            loadProfileData()
         }
     }
 
