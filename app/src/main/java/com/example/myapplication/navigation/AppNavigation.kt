@@ -5,6 +5,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.ShowChart
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -24,11 +25,14 @@ import com.example.myapplication.ui.home.HomeScreen
 import com.example.myapplication.ui.home.HomeViewModel
 import com.example.myapplication.ui.profile.ProfileScreen
 import com.example.myapplication.ui.profile.ProfileViewModel
+import com.example.myapplication.ui.progress.ProgressScreen
+import com.example.myapplication.ui.progress.ProgressViewModel
 import com.example.myapplication.ui.statistics.StatisticsScreen
 import com.example.myapplication.ui.statistics.StatisticsViewModel
 
 private const val HOME = "home"
 private const val STATISTICS = "statistics"
+private const val PROGRESS = "progress"
 private const val PROFILE = "profile"
 
 @Composable
@@ -36,9 +40,9 @@ fun AppNavigation(
     homeViewModel: HomeViewModel,
     profileViewModel: ProfileViewModel,
     statisticsViewModel: StatisticsViewModel,
+    progressViewModel: ProgressViewModel,
     onOpenUsageSettings: () -> Unit
 ) {
-
     val navController = rememberNavController()
     val profileState by profileViewModel.uiState.collectAsState()
 
@@ -47,31 +51,26 @@ fun AppNavigation(
             BottomNavigationBar(navController, homeViewModel)
         }
     ) { paddingValues ->
-
         NavHost(
             navController = navController,
             startDestination = HOME,
             modifier = Modifier.padding(paddingValues)
         ) {
-
             composable(HOME) {
-
                 HomeScreen(
                     viewModel = homeViewModel,
                     userName = profileState.userName,
-                    onOpenUsageSettings =
-                        onOpenUsageSettings
+                    onOpenUsageSettings = onOpenUsageSettings
                 )
             }
-
             composable(STATISTICS) {
                 StatisticsScreen(statisticsViewModel)
             }
-
+            composable(PROGRESS) {
+                ProgressScreen(progressViewModel)
+            }
             composable(PROFILE) {
-                ProfileScreen(
-                    viewModel = profileViewModel
-                )
+                ProfileScreen(viewModel = profileViewModel)
             }
         }
     }
@@ -82,12 +81,8 @@ private fun BottomNavigationBar(
     navController: NavHostController,
     homeViewModel: HomeViewModel
 ) {
-
-    val backStackEntry by
-    navController.currentBackStackEntryAsState()
-
-    val currentRoute =
-        backStackEntry?.destination?.route
+    val backStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = backStackEntry?.destination?.route
 
     LaunchedEffect(currentRoute) {
         if (currentRoute == HOME) {
@@ -96,7 +91,6 @@ private fun BottomNavigationBar(
     }
 
     NavigationBar {
-
         NavigationBarItem(
             selected = currentRoute == HOME,
             onClick = {
@@ -105,15 +99,8 @@ private fun BottomNavigationBar(
                     restoreState = true
                 }
             },
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.Home,
-                    contentDescription = "Главная"
-                )
-            },
-            label = {
-                Text("Главная")
-            }
+            icon = { Icon(Icons.Default.Home, contentDescription = "Главная") },
+            label = { Text("Главная") }
         )
 
         NavigationBarItem(
@@ -124,15 +111,20 @@ private fun BottomNavigationBar(
                     restoreState = true
                 }
             },
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.ShowChart,
-                    contentDescription = "Статистика"
-                )
+            icon = { Icon(Icons.Default.ShowChart, contentDescription = "Статистика") },
+            label = { Text("Статистика") }
+        )
+
+        NavigationBarItem(
+            selected = currentRoute == PROGRESS,
+            onClick = {
+                navController.navigate(PROGRESS) {
+                    launchSingleTop = true
+                    restoreState = true
+                }
             },
-            label = {
-                Text("Статистика")
-            }
+            icon = { Icon(Icons.Default.Star, contentDescription = "Прогресс") },
+            label = { Text("Прогресс") }
         )
 
         NavigationBarItem(
@@ -143,15 +135,8 @@ private fun BottomNavigationBar(
                     restoreState = true
                 }
             },
-            icon = {
-                Icon(
-                    imageVector = Icons.Default.Person,
-                    contentDescription = "Профиль"
-                )
-            },
-            label = {
-                Text("Профиль")
-            }
+            icon = { Icon(Icons.Default.Person, contentDescription = "Профиль") },
+            label = { Text("Профиль") }
         )
     }
 }
