@@ -10,16 +10,17 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 @Database(
     entities = [
         TrackedAppEntity::class,
-        DailyProgressEntity::class
+        DailyProgressEntity::class,
+        SavingsAllocationEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun trackedAppDao(): TrackedAppDao
-
     abstract fun dailyProgressDao(): DailyProgressDao
+    abstract fun savingsAllocationDao(): SavingsAllocationDao
 
     companion object {
 
@@ -43,24 +44,36 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS savings_allocations (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        dateKey TEXT NOT NULL,
+                        category TEXT NOT NULL,
+                        minutes INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+            }
+        }
+
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
         fun getInstance(context: Context): AppDatabase {
-
             return INSTANCE ?: synchronized(this) {
-
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
                     "digital_wellbeing_database"
                 )
-                    .addMigrations(MIGRATION_1_2)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .fallbackToDestructiveMigration()
                     .build()
 
                 INSTANCE = instance
-
                 instance
             }
         }
