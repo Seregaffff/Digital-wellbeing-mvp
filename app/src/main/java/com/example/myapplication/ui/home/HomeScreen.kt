@@ -218,6 +218,7 @@ private fun formatTime(minutes: Int): String {
     }
 }
 
+@Composable
 private fun AppUsageCard(name: String, usedMinutes: Int, limitMinutes: Int) {
     Card(
         modifier = Modifier.fillMaxWidth(),
