@@ -37,284 +37,126 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 
-
 @Composable
-fun StatisticsScreen(
-    viewModel: StatisticsViewModel
-) {
+fun StatisticsScreen(viewModel: StatisticsViewModel) {
     val state by viewModel.uiState.collectAsState()
 
-    LaunchedEffect(Unit) {
-        viewModel.loadStatistics()
-    }
+    LaunchedEffect(Unit) { viewModel.loadStatistics() }
 
     LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 20.dp),
+        modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
-        contentPadding = PaddingValues(
-            top = 20.dp,
-            bottom = 24.dp
-        )
+        contentPadding = PaddingValues(top = 20.dp, bottom = 24.dp)
     ) {
         item {
-            Text(
-                text = "Статистика",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold
-            )
+            Text("Статистика", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         }
-
-        item {
-            Text(
-                text = "Экранное время выбранных приложений за последние 7 дней"
-            )
-        }
+        item { Text("Экранное время выбранных приложений за последние 7 дней") }
 
         when {
-            state.isLoading -> {
-                item {
-                    CircularProgressIndicator(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 20.dp)
+            state.isLoading -> item {
+                CircularProgressIndicator(modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp))
+            }
+            state.apps.isEmpty() -> item {
+                Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
+                    Text(
+                        text = "Добавьте приложения в Профиле, чтобы увидеть статистику.",
+                        modifier = Modifier.padding(18.dp)
                     )
                 }
             }
-
-            state.apps.isEmpty() -> {
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(18.dp)
-                    ) {
-                        Text(
-                            text = "Добавьте приложения в Профиле, чтобы увидеть статистику.",
-                            modifier = Modifier.padding(18.dp)
-                        )
-                    }
-                }
-            }
-
-            else -> {
-                items(state.apps) { app ->
-                    WeeklyAppCard(app)
-                }
-            }
+            else -> items(state.apps) { app -> WeeklyAppCard(app) }
         }
     }
 }
-
 
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
-private fun WeeklyAppCard(
-    app: AppWeeklyUsageUi
-) {
-    var showDetails by remember {
-        mutableStateOf(false)
-    }
+private fun WeeklyAppCard(app: AppWeeklyUsageUi) {
+    var showDetails by remember { mutableStateOf(false) }
 
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable {
-                showDetails = !showDetails
-            },
+        modifier = Modifier.fillMaxWidth().clickable { showDetails = !showDetails },
         shape = RoundedCornerShape(18.dp)
     ) {
-        AnimatedContent(
-            targetState = showDetails,
-            label = "statistics_card"
-        ) { detailsVisible ->
-
+        AnimatedContent(targetState = showDetails, label = "statistics_card") { detailsVisible ->
             if (!detailsVisible) {
-
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
-                        text = app.app.toString(),
+                        text = app.app.appName,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
-
-                    Text(
-                        text = "Нажмите на график для подробностей",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-
+                    Text("Нажмите на график для подробностей", style = MaterialTheme.typography.bodySmall)
                     WeeklyBarChart(app.days)
                 }
-
             } else {
-
-                Column(
-                    modifier = Modifier.padding(18.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-
+                Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
-                        text = app.app.toString(),
+                        text = app.app.appName,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
-
-                    DetailRow(
-                        title = "Общее время",
-                        value = formatMinutes(app.totalMinutes)
-                    )
-
-                    DetailRow(
-                        title = "Среднее в день",
-                        value = formatMinutes(app.averageMinutes)
-                    )
-
-                    DetailRow(
-                        title = "Самый загруженный день",
-                        value = busiestDayText(app.days)
-                    )
-
-                    Text(
-                        text = "Пик использования по часам добавим следующим шагом.",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-
-                    Text(
-                        text = "Нажмите, чтобы вернуться к графику",
-                        style = MaterialTheme.typography.bodySmall
-                    )
+                    DetailRow("Общее время", formatMinutes(app.totalMinutes))
+                    DetailRow("Среднее в день", formatMinutes(app.averageMinutes))
+                    DetailRow("Самый загруженный день", busiestDayText(app.days))
+                    Text("Пик использования по часам добавим следующим шагом.", style = MaterialTheme.typography.bodySmall)
+                    Text("Нажмите, чтобы вернуться к графику", style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
     }
 }
 
-
 @Composable
-private fun DetailRow(
-    title: String,
-    value: String
-) {
+private fun DetailRow(title: String, value: String) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(text = title)
-
-        Text(
-            text = value,
-            fontWeight = FontWeight.SemiBold
-        )
+        Text(title)
+        Text(value, fontWeight = FontWeight.SemiBold)
     }
 }
 
-
-private fun busiestDayText(
-    days: List<WeeklyDayUi>
-): String {
-
-    if (days.isEmpty()) {
-        return "Нет данных"
-    }
-
-    val busiest = days.maxByOrNull {
-        it.totalMinutes
-    } ?: return "Нет данных"
-
-    return "${formatDate(busiest.date)} — ${
-        formatMinutes(busiest.totalMinutes)
-    }"
+private fun busiestDayText(days: List<WeeklyDayUi>): String {
+    if (days.isEmpty()) return "Нет данных"
+    val busiest = days.maxByOrNull { it.totalMinutes } ?: return "Нет данных"
+    return "${formatDate(busiest.date)} — ${formatMinutes(busiest.totalMinutes)}"
 }
-
 
 @Composable
-private fun WeeklyBarChart(
-    days: List<WeeklyDayUi>
-) {
-    val maxMinutes = (
-            days.maxOfOrNull {
-                it.totalMinutes
-            } ?: 0
-            ).coerceAtLeast(1)
+private fun WeeklyBarChart(days: List<WeeklyDayUi>) {
+    val maxMinutes = (days.maxOfOrNull { it.totalMinutes } ?: 0).coerceAtLeast(1)
 
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(150.dp),
+        modifier = Modifier.fillMaxWidth().height(150.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.Bottom
     ) {
-
         days.forEach { day ->
-
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-
-                val fraction =
-                    day.totalMinutes.toFloat() / maxMinutes
-
-                val barColor =
-                    MaterialTheme.colorScheme.primary
-
-                Canvas(
-                    modifier = Modifier
-                        .width(24.dp)
-                        .height(110.dp)
-                ) {
-
-                    val barHeight =
-                        size.height * fraction
-
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                val fraction = day.totalMinutes.toFloat() / maxMinutes
+                val barColor = MaterialTheme.colorScheme.primary
+                Canvas(modifier = Modifier.width(24.dp).height(110.dp)) {
+                    val barHeight = size.height * fraction
                     drawRoundRect(
                         color = barColor,
-                        topLeft = Offset(
-                            0f,
-                            size.height - barHeight
-                        ),
-                        size = Size(
-                            size.width,
-                            barHeight
-                        ),
-                        cornerRadius = CornerRadius(
-                            8f,
-                            8f
-                        )
+                        topLeft = Offset(0f, size.height - barHeight),
+                        size = Size(size.width, barHeight),
+                        cornerRadius = CornerRadius(8f, 8f)
                     )
                 }
-
-                Spacer(
-                    modifier = Modifier.height(4.dp)
-                )
-
-                Text(
-                    text = formatDate(day.date),
-                    fontSize = 11.sp
-                )
-
-                Text(
-                    text = "${day.totalMinutes} мин",
-                    fontSize = 10.sp
-                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(formatDate(day.date), fontSize = 11.sp)
+                Text("${day.totalMinutes} мин", fontSize = 10.sp)
             }
         }
     }
 }
 
-
-private fun formatDate(
-    timestamp: Long
-): String {
-
-    val calendar =
-        java.util.Calendar.getInstance().apply {
-            timeInMillis = timestamp
-        }
-
+private fun formatDate(timestamp: Long): String {
+    val calendar = java.util.Calendar.getInstance().apply { timeInMillis = timestamp }
     return String.format(
         "%02d.%02d",
         calendar.get(java.util.Calendar.DAY_OF_MONTH),
@@ -322,22 +164,12 @@ private fun formatDate(
     )
 }
 
-
-private fun formatMinutes(
-    minutes: Int
-): String {
-
+private fun formatMinutes(minutes: Int): String {
     val hours = minutes / 60
     val mins = minutes % 60
-
     return when {
-        hours > 0 && mins > 0 ->
-            "$hours ч $mins мин"
-
-        hours > 0 ->
-            "$hours ч"
-
-        else ->
-            "$mins мин"
+        hours > 0 && mins > 0 -> "$hours ч $mins мин"
+        hours > 0 -> "$hours ч"
+        else -> "$mins мин"
     }
 }
