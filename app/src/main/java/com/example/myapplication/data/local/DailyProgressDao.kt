@@ -31,4 +31,11 @@ interface DailyProgressDao {
 
     @Query("SELECT COUNT(DISTINCT dateKey) FROM daily_progress WHERE finalized = 1 AND completed = 1")
     suspend fun getSuccessfulDayCount(): Int
+
+    /**
+     * Removes the live snapshot for a day before rebuilding it from the
+     * currently tracked apps. Historical/finalized days are never touched.
+     */
+    @Query("DELETE FROM daily_progress WHERE dateKey = :dateKey AND finalized = 0")
+    suspend fun deleteLiveForDate(dateKey: String)
 }
