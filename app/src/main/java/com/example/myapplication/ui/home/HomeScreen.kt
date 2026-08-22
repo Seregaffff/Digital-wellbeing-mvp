@@ -53,97 +53,77 @@ fun HomeScreen(
         )
     ) {
         item {
-
-        Text(
-            text = if (userName.isBlank()) "Добрый день 👋" else "Добрый день, $userName 👋",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold
-        )
-
-        Text(
-            text = "Посмотрим, как проходит твой день?"
-        )
-
-        ScreenTimeCard(
-            totalMinutes = state.totalScreenTime
-        )
-
-        SavedTimeCard(
-            savedMinutes = state.savedTimeMinutes
-        )
-
-        Text(
-            text = "Твои приложения",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold
-        )
-
-        if (state.apps.isEmpty()) {
-
-            Card(
+            Column(
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor =
-                        MaterialTheme.colorScheme.surfaceVariant
-                )
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                Text(
+                    text = if (userName.isBlank()) "Добрый день 👋" else "Добрый день, $userName 👋",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold
+                )
 
-                Column(
-                    modifier = Modifier.padding(20.dp)
+                Text("Посмотрим, как проходит твой день?")
+
+                ScreenTimeCard(totalMinutes = state.totalScreenTime)
+
+                SavedTimeCard(savedMinutes = state.savedTimeMinutes)
+
+                Text(
+                    text = "Твои приложения",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+
+                if (state.apps.isEmpty()) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(20.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    ) {
+                        Column(modifier = Modifier.padding(20.dp)) {
+                            Text(
+                                text = "Пока нет отслеживаемых приложений",
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("Добавь до 3 приложений, за которыми хочешь следить.")
+                        }
+                    }
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        state.apps.forEach { usage ->
+                            AppUsageCard(
+                                appName = usage.app.appName,
+                                usedMinutes = usage.usedMinutes,
+                                limitMinutes = usage.app.dailyLimitMinutes
+                            )
+                        }
+                    }
+                }
+
+                Button(
+                    onClick = { viewModel.loadUsage() },
+                    modifier = Modifier.fillMaxWidth()
                 ) {
+                    Text("Обновить данные")
+                }
 
-                    Text(
-                        text = "Пока нет отслеживаемых приложений",
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    Spacer(
-                        modifier = Modifier.height(8.dp)
-                    )
-
-                    Text(
-                        text = "Добавь до 3 приложений, за которыми хочешь следить."
-                    )
+                Button(
+                    onClick = onOpenUsageSettings,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Настройки доступа")
                 }
             }
-
-        } else {
-
-            state.apps.forEach { usage ->
-
-                AppUsageCard(
-                    appName = usage.app.appName,
-                    usedMinutes = usage.usedMinutes,
-                    limitMinutes = usage.app.dailyLimitMinutes
-                )
-            }
-        }
-
-        Button(
-            onClick = {
-                viewModel.loadUsage()
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Обновить данные")
-        }
-
-        Button(
-            onClick = onOpenUsageSettings,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Настройки доступа")
-        }
         }
     }
 }
 
-
 @Composable
-private fun SavedTimeCard(
-    savedMinutes: Int
-) {
+private fun SavedTimeCard(savedMinutes: Int) {
     val hours = savedMinutes / 60
     val minutes = savedMinutes % 60
     val timeText = if (hours > 0) {
@@ -167,17 +147,9 @@ private fun SavedTimeCard(
         )
     ) {
         Column(modifier = Modifier.padding(20.dp)) {
-            Text(
-                text = "Вы сэкономили",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
+            Text("Вы сэкономили", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = timeText,
-                fontSize = 32.sp,
-                fontWeight = FontWeight.Bold
-            )
+            Text(timeText, fontSize = 32.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(4.dp))
             Text(filmText)
             if (savedMinutes > 0) {
@@ -192,53 +164,32 @@ private fun SavedTimeCard(
 }
 
 @Composable
-private fun ScreenTimeCard(
-    totalMinutes: Int
-) {
-
+private fun ScreenTimeCard(totalMinutes: Int) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(28.dp),
-        colors = CardDefaults.cardColors(
-            containerColor =
-                MaterialTheme.colorScheme.primaryContainer
-        )
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
     ) {
-
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-
+            Text("Сегодня")
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(formatTime(totalMinutes), fontSize = 42.sp, fontWeight = FontWeight.Bold)
+            Text("общее экранное время")
             Text(
-                text = "Сегодня"
-            )
-
-            Spacer(
-                modifier = Modifier.height(8.dp)
-            )
-
-            Text(
-                text = formatTime(totalMinutes),
-                fontSize = 42.sp,
-                fontWeight = FontWeight.Bold
-            )
-
-            Text(
-                text = "экранного времени"
+                "по всем приложениям на устройстве",
+                style = MaterialTheme.typography.bodySmall
             )
         }
     }
 }
 
 @Composable
-private fun AppUsageCard(
-    appName: String,
-    usedMinutes: Int,
-    limitMinutes: Int
-) {
+private fun AppUsageCard(appName: String, usedMinutes: Int, limitMinutes: Int) {
     val exceeded = limitMinutes > 0 && usedMinutes > limitMinutes
     val progress = if (limitMinutes > 0) {
         (usedMinutes.toFloat() / limitMinutes).coerceIn(0f, 1f)
@@ -248,11 +199,8 @@ private fun AppUsageCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (exceeded) {
-                MaterialTheme.colorScheme.errorContainer
-            } else {
-                MaterialTheme.colorScheme.surfaceContainer
-            }
+            containerColor = if (exceeded) MaterialTheme.colorScheme.errorContainer
+            else MaterialTheme.colorScheme.surfaceContainer
         )
     ) {
         Column(modifier = Modifier.padding(18.dp)) {
@@ -262,23 +210,16 @@ private fun AppUsageCard(
             ) {
                 Text(appName, fontWeight = FontWeight.Bold)
                 Text(
-                    text = if (exceeded) {
-                        "Лимит превышен"
-                    } else {
-                        "$usedMinutes / $limitMinutes мин"
-                    },
+                    text = if (exceeded) "Лимит превышен" else "$usedMinutes / $limitMinutes мин",
                     color = if (exceeded) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
                 )
             }
-
             Spacer(modifier = Modifier.height(10.dp))
-
             LinearProgressIndicator(
                 progress = { progress },
                 modifier = Modifier.fillMaxWidth(),
                 color = if (exceeded) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
             )
-
             if (exceeded) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
@@ -291,16 +232,8 @@ private fun AppUsageCard(
     }
 }
 
-private fun formatTime(
-    minutes: Int
-): String {
-
+private fun formatTime(minutes: Int): String {
     val hours = minutes / 60
     val remainingMinutes = minutes % 60
-
-    return if (hours > 0) {
-        "$hours ч $remainingMinutes мин"
-    } else {
-        "$remainingMinutes мин"
-    }
+    return if (hours > 0) "$hours ч $remainingMinutes мин" else "$remainingMinutes мин"
 }
