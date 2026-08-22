@@ -8,6 +8,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.ViewModelProvider
 import com.example.myapplication.data.local.AppDatabase
+import com.example.myapplication.data.repository.SavedTimeRepository
 import com.example.myapplication.data.repository.UsageRepository
 import com.example.myapplication.navigation.AppNavigation
 import com.example.myapplication.ui.home.HomeViewModel
@@ -40,9 +41,18 @@ class MainActivity : ComponentActivity() {
                     database.trackedAppDao()
             )
 
+        val savedTimeRepository =
+            SavedTimeRepository(
+                dailyProgressDao =
+                    database.dailyProgressDao(),
+                usageRepository =
+                    repository
+            )
+
         val factory =
             HomeViewModelFactory(
-                repository
+                repository = repository,
+                savedTimeRepository = savedTimeRepository
             )
 
         val homeViewModel =
