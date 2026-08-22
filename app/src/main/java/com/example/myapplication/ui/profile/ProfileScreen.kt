@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -40,6 +41,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -63,18 +65,10 @@ fun ProfileScreen(viewModel: ProfileViewModel) {
         OutlinedTextField(
             value = nameInput,
             onValueChange = {
-                nameInput = it
-                    .filter { char ->
-                        char in 'A'..'Z' ||
-                            char in 'a'..'z' ||
-                            char in 'А'..'Я' ||
-                            char in 'а'..'я' ||
-                            char == 'Ё' ||
-                            char == 'ё' ||
-                            char == ' ' ||
-                            char == '-'
-                    }
-                    .take(30)
+                nameInput = it.filter { char ->
+                    char in 'A'..'Z' || char in 'a'..'z' || char in 'А'..'Я' || char in 'а'..'я' ||
+                        char == 'Ё' || char == 'ё' || char == ' ' || char == '-'
+                }.take(30)
             },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
@@ -89,8 +83,14 @@ fun ProfileScreen(viewModel: ProfileViewModel) {
         )
 
         Text("Email", style = MaterialTheme.typography.bodyMedium)
-
         Spacer(modifier = Modifier.height(4.dp))
+
+        Text(
+            "Мои достижения",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold
+        )
+        FirstStepsAchievement(unlocked = uiState.firstStepsAchievementUnlocked)
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -113,7 +113,10 @@ fun ProfileScreen(viewModel: ProfileViewModel) {
                 Text("Пока нет отслеживаемых приложений. Добавьте до 3 приложений.", modifier = Modifier.padding(16.dp))
             }
         } else {
-            LazyColumn(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 items(uiState.trackedApps, key = { it.id }) { app ->
                     TrackedAppCard(
                         app = app,
@@ -132,7 +135,9 @@ fun ProfileScreen(viewModel: ProfileViewModel) {
 
     if (uiState.isLimitDialogVisible) {
         val app = uiState.trackedApps.firstOrNull { it.id == uiState.editingAppId }
-        if (app != null) { LimitDialog(app, viewModel::closeLimitEditor, viewModel::saveLimit) }
+        if (app != null) {
+            LimitDialog(app, viewModel::closeLimitEditor, viewModel::saveLimit)
+        }
     }
 
     uiState.errorMessage?.let { message ->
@@ -146,6 +151,38 @@ fun ProfileScreen(viewModel: ProfileViewModel) {
 
     if (uiState.isLoading) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+    }
+}
+
+@Composable
+private fun FirstStepsAchievement(unlocked: Boolean) {
+    val iconTint = if (unlocked) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
+    }
+
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.EmojiEvents,
+                contentDescription = null,
+                tint = iconTint,
+                modifier = Modifier.size(48.dp)
+            )
+            Spacer(modifier = Modifier.size(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Первые шаги", fontWeight = FontWeight.Bold)
+                Text(
+                    if (unlocked) "Достижение получено!"
+                    else "Выберите приложение для отслеживания экранного времени и настройте для него дневной лимит.",
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
     }
 }
 
@@ -187,7 +224,12 @@ private fun LimitDialog(app: TrackedAppEntity, onDismiss: () -> Unit, onSave: (I
                 Text("Примеры: 30 = полчаса, 60 = 1 час, 120 = 2 часа", style = MaterialTheme.typography.bodySmall)
             }
         },
-        confirmButton = { TextButton(onClick = { if (minutes != null && minutes in 1..1440) onSave(minutes) }, enabled = minutes != null && minutes in 1..1440) { Text("Сохранить") } },
+        confirmButton = {
+            TextButton(
+                onClick = { if (minutes != null && minutes in 1..1440) onSave(minutes) },
+                enabled = minutes != null && minutes in 1..1440
+            ) { Text("Сохранить") }
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
     )
 }
