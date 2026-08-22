@@ -2,6 +2,7 @@ package com.example.myapplication.ui.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.myapplication.data.repository.SavedTimeRepository
 import com.example.myapplication.data.repository.UsageRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,7 +28,8 @@ data class TrackedAppUi(
 )
 
 class HomeViewModel(
-    private val repository: UsageRepository
+    private val repository: UsageRepository,
+    private val savedTimeRepository: SavedTimeRepository
 ) : ViewModel() {
 
     private val _uiState =
@@ -50,6 +52,11 @@ class HomeViewModel(
                 )
 
             try {
+
+                // First finalize any snapshots from previous calendar days.
+                // Then refresh today's live snapshot in Room.
+                savedTimeRepository.finalizePreviousDays()
+                val todaySavedTime = savedTimeRepository.updateToday()
 
                 val totalMinutes =
                     repository.getTodayTotalUsageMinutes()
@@ -77,10 +84,6 @@ class HomeViewModel(
                         )
                     }
 
-                val savedTimeMinutes = trackedApps.sumOf { usage ->
-                    (usage.app.dailyLimitMinutes - usage.usedMinutes).coerceAtLeast(0)
-                }
-
                 _uiState.value =
                     HomeUiState(
                         totalScreenTime =
@@ -88,7 +91,11 @@ class HomeViewModel(
 
                         apps = apps,
 
-                        savedTimeMinutes = savedTimeMinutes,
+                        // This is the live Saved Time potential for today.
+                        // The persistent historical total is kept in Room and
+                        // will be used by the next Stage 2 layers.
+                        savedTimeMinutes =
+                            todaySavedTime.savedMinutes,
 
                         isLoading = false
                     )
