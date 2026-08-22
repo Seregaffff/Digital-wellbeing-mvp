@@ -7,14 +7,17 @@ import androidx.room.RoomDatabase
 
 @Database(
     entities = [
-        TrackedAppEntity::class
+        TrackedAppEntity::class,
+        DailyProgressEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun trackedAppDao(): TrackedAppDao
+
+    abstract fun dailyProgressDao(): DailyProgressDao
 
     companion object {
 
