@@ -8,8 +8,8 @@ import java.util.Calendar
 import java.util.Locale
 
 enum class SavingsCategory(val key: String, val title: String, val description: String, val targetMinutes: Int) {
-    BOOKS("books", "Книги", "1 страница ≈ 1,25 минуты", 375),
-    MOVIES("movies", "Кино", "До «Зелёной мили» — 189 минут", 189),
+    BOOKS("books", "Книги", "1 страница ≈ 1–1,5 минуты", 375),
+    MOVIES("movies", "Кино", "189 мин — «Зелёная миля» · 194 мин — «Титаник»", 189),
     WALKS("walks", "Прогулки", "45 минут ≈ 3,5 км", 45)
 }
 
