@@ -100,7 +100,6 @@ private fun WeeklyAppCard(app: AppWeeklyUsageUi) {
                     DetailRow("Общее время", formatMinutes(app.totalMinutes))
                     DetailRow("Среднее в день", formatMinutes(app.averageMinutes))
                     DetailRow("Самый загруженный день", busiestDayText(app.days))
-                    Text("Пик использования по часам добавим следующим шагом.", style = MaterialTheme.typography.bodySmall)
                     Text("Нажмите, чтобы вернуться к графику", style = MaterialTheme.typography.bodySmall)
                 }
             }
