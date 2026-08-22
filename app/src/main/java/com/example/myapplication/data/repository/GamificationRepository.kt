@@ -11,9 +11,7 @@ import java.util.Locale
  * Stage 2 gamification engine.
  *
  * A finalized day is processed exactly once. A successful day increments the
- * streak. A failed day consumes a shield if one exists; otherwise the streak
- * resets. Streak milestone shields are stackable, while the weekly shield is
- * capped at one.
+ * streak. A failed day consumes a shield if one exists; otherwise the streak resets. Streak milestone shields are stackable, while the weekly shield is capped at one.
  */
 class GamificationRepository(
     private val dailyProgressDao: DailyProgressDao,
@@ -67,6 +65,14 @@ class GamificationRepository(
         if (lastProcessedDate != null) {
             userPreferences.setLastProcessedStreakDate(lastProcessedDate)
         }
+
+        val status = when {
+            streakBroken -> "Лимит превышен — щитов не осталось, серия прервана."
+            shieldBurned -> "Лимит превышен — щит сгорел. Серия сохранена."
+            newlyUnlocked.isNotEmpty() -> "🏆 Новое достижение: ${newlyUnlocked.first()}"
+            else -> null
+        }
+        if (status != null) userPreferences.setLastStreakStatus(status)
 
         val totalSavedMinutes = dailyProgressDao.getTotalFinalizedSavedMinutes()
         SAVED_TIME_MILESTONES.forEach { milestone ->
