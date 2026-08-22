@@ -41,7 +41,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -55,75 +54,118 @@ fun ProfileScreen(viewModel: ProfileViewModel) {
 
     LaunchedEffect(Unit) { viewModel.loadTrackedApps() }
 
-    Column(
-        modifier = Modifier.fillMaxSize().padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+    val achievements = listOf(
+        AchievementUi(
+            title = "Первые шаги",
+            description = "Выберите приложение для отслеживания экранного времени и настройте для него дневной лимит.",
+            unlocked = uiState.firstStepsAchievementUnlocked
+        )
+    )
+    val visibleAchievements = achievements.take(3)
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(top = 20.dp, bottom = 32.dp)
     ) {
-        Text("Мой профиль", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        item {
+            Text("Мой профиль", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        }
 
-        Text("Имя", fontWeight = FontWeight.SemiBold)
-        OutlinedTextField(
-            value = nameInput,
-            onValueChange = {
-                nameInput = it.filter { char ->
-                    char in 'A'..'Z' || char in 'a'..'z' || char in 'А'..'Я' || char in 'а'..'я' ||
-                        char == 'Ё' || char == 'ё' || char == ' ' || char == '-'
-                }.take(30)
-            },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            placeholder = { Text("Как к тебе обращаться?") },
-            supportingText = { Text("До 30 символов: буквы, пробел и дефис") },
-            trailingIcon = {
-                TextButton(
-                    onClick = { viewModel.saveUserName(nameInput) },
-                    enabled = nameInput.trim() != uiState.userName
-                ) { Text("Сохранить") }
-            }
-        )
+        item {
+            Text("Имя", fontWeight = FontWeight.SemiBold)
+        }
 
-        Text("Email", style = MaterialTheme.typography.bodyMedium)
-        Spacer(modifier = Modifier.height(4.dp))
+        item {
+            OutlinedTextField(
+                value = nameInput,
+                onValueChange = {
+                    nameInput = it.filter { char ->
+                        char in 'A'..'Z' || char in 'a'..'z' || char in 'А'..'Я' || char in 'а'..'я' ||
+                            char == 'Ё' || char == 'ё' || char == ' ' || char == '-'
+                    }.take(30)
+                },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                placeholder = { Text("Как к тебе обращаться?") },
+                supportingText = { Text("До 30 символов: буквы, пробел и дефис") },
+                trailingIcon = {
+                    TextButton(
+                        onClick = { viewModel.saveUserName(nameInput) },
+                        enabled = nameInput.trim() != uiState.userName
+                    ) { Text("Сохранить") }
+                }
+            )
+        }
 
-        Text(
-            "Мои достижения",
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold
-        )
-        FirstStepsAchievement(unlocked = uiState.firstStepsAchievementUnlocked)
+        item {
+            Text("Email", style = MaterialTheme.typography.bodyMedium)
+        }
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column {
-                Text("Мои приложения", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Text("Отслеживается ${uiState.trackedApps.size} из 3", style = MaterialTheme.typography.bodySmall)
-            }
-            Button(onClick = viewModel::openAppPicker, enabled = uiState.canAddApp) {
-                Icon(Icons.Default.Add, contentDescription = null)
-                Spacer(modifier = Modifier.size(6.dp))
-                Text("Добавить")
+        item {
+            Spacer(modifier = Modifier.height(4.dp))
+        }
+
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text("Мои приложения", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text("Отслеживается ${uiState.trackedApps.size} из 3", style = MaterialTheme.typography.bodySmall)
+                }
+                Button(onClick = viewModel::openAppPicker, enabled = uiState.canAddApp) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Spacer(modifier = Modifier.size(6.dp))
+                    Text("Добавить")
+                }
             }
         }
 
         if (uiState.trackedApps.isEmpty()) {
-            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
-                Text("Пока нет отслеживаемых приложений. Добавьте до 3 приложений.", modifier = Modifier.padding(16.dp))
+            item {
+                Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+                    Text(
+                        "Пока нет отслеживаемых приложений. Добавьте до 3 приложений.",
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
             }
         } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(uiState.trackedApps, key = { it.id }) { app ->
-                    TrackedAppCard(
-                        app = app,
-                        onLimit = { viewModel.openLimitEditor(app.id) },
-                        onReplace = { viewModel.openAppPicker(app.id) },
-                        onDelete = { viewModel.deleteApp(app) }
-                    )
+            items(uiState.trackedApps, key = { it.id }) { app ->
+                TrackedAppCard(
+                    app = app,
+                    onLimit = { viewModel.openLimitEditor(app.id) },
+                    onReplace = { viewModel.openAppPicker(app.id) },
+                    onDelete = { viewModel.deleteApp(app) }
+                )
+            }
+        }
+
+        item {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                "Мои достижения",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+
+        items(visibleAchievements) { achievement ->
+            AchievementCard(achievement)
+        }
+
+        if (achievements.size > 3) {
+            item {
+                TextButton(
+                    onClick = { /* Full achievements screen will be added later. */ },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Посмотреть все")
                 }
             }
         }
@@ -154,9 +196,15 @@ fun ProfileScreen(viewModel: ProfileViewModel) {
     }
 }
 
+data class AchievementUi(
+    val title: String,
+    val description: String,
+    val unlocked: Boolean
+)
+
 @Composable
-private fun FirstStepsAchievement(unlocked: Boolean) {
-    val iconTint = if (unlocked) {
+private fun AchievementCard(achievement: AchievementUi) {
+    val iconTint = if (achievement.unlocked) {
         MaterialTheme.colorScheme.primary
     } else {
         MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
@@ -175,10 +223,9 @@ private fun FirstStepsAchievement(unlocked: Boolean) {
             )
             Spacer(modifier = Modifier.size(14.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text("Первые шаги", fontWeight = FontWeight.Bold)
+                Text(achievement.title, fontWeight = FontWeight.Bold)
                 Text(
-                    if (unlocked) "Достижение получено!"
-                    else "Выберите приложение для отслеживания экранного времени и настройте для него дневной лимит.",
+                    if (achievement.unlocked) "Достижение получено!" else achievement.description,
                     style = MaterialTheme.typography.bodySmall
                 )
             }
@@ -187,20 +234,61 @@ private fun FirstStepsAchievement(unlocked: Boolean) {
 }
 
 @Composable
-private fun TrackedAppCard(app: TrackedAppEntity, onLimit: () -> Unit, onReplace: () -> Unit, onDelete: () -> Unit) {
+private fun TrackedAppCard(
+    app: TrackedAppEntity,
+    onLimit: () -> Unit,
+    onReplace: () -> Unit,
+    onDelete: () -> Unit
+) {
     val context = LocalContext.current
     val packageManager = context.packageManager
-    val iconBitmap = remember(app.packageName) { packageManager.getApplicationIcon(app.packageName).toBitmapSafely(96) }
+    val iconBitmap = remember(app.packageName) {
+        packageManager.getApplicationIcon(app.packageName).toBitmapSafely(96)
+    }
+
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
-        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Image(iconBitmap.asImageBitmap(), app.appName, Modifier.size(44.dp))
-            Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                Text(app.appName, fontWeight = FontWeight.SemiBold)
-                Text("Лимит: ${formatMinutes(app.dailyLimitMinutes)} в день", style = MaterialTheme.typography.bodySmall)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top
+            ) {
+                Image(iconBitmap.asImageBitmap(), app.appName, Modifier.size(52.dp))
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 14.dp)
+                ) {
+                    Text(
+                        app.appName,
+                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        "Лимит: ${formatMinutes(app.dailyLimitMinutes)} в день",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+                IconButton(onClick = onDelete) {
+                    Icon(Icons.Default.Delete, contentDescription = "Удалить ${app.appName}")
+                }
             }
-            TextButton(onClick = onLimit) { Text("Лимит") }
-            TextButton(onClick = onReplace) { Text("Заменить") }
-            IconButton(onClick = onDelete) { Icon(Icons.Default.Delete, contentDescription = "Удалить ${app.appName}") }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                TextButton(onClick = onLimit, modifier = Modifier.weight(1f)) {
+                    Text("Лимит")
+                }
+                TextButton(onClick = onReplace, modifier = Modifier.weight(1f)) {
+                    Text("Заменить")
+                }
+            }
         }
     }
 }
@@ -235,25 +323,51 @@ private fun LimitDialog(app: TrackedAppEntity, onDismiss: () -> Unit, onSave: (I
 }
 
 @Composable
-private fun AppPickerDialog(apps: List<InstalledAppUi>, onDismiss: () -> Unit, onAppSelected: (InstalledAppUi) -> Unit) {
+private fun AppPickerDialog(
+    apps: List<InstalledAppUi>,
+    onDismiss: () -> Unit,
+    onAppSelected: (InstalledAppUi) -> Unit
+) {
     var searchQuery by remember { mutableStateOf("") }
     val filteredApps = remember(apps, searchQuery) {
         val query = searchQuery.trim().lowercase()
-        if (query.isEmpty()) apps else apps.filter { it.appName.lowercase().contains(query) || it.packageName.lowercase().contains(query) }
+        if (query.isEmpty()) apps else apps.filter {
+            it.appName.lowercase().contains(query) || it.packageName.lowercase().contains(query)
+        }
     }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Выберите приложение") },
         text = {
             Column {
-                OutlinedTextField(value = searchQuery, onValueChange = { searchQuery = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("Поиск") })
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    label = { Text("Поиск") }
+                )
                 Spacer(Modifier.height(12.dp))
                 if (filteredApps.isEmpty()) {
-                    Text(if (apps.isEmpty()) "Не удалось найти установленные пользовательские приложения." else "По вашему запросу ничего не найдено.", modifier = Modifier.padding(vertical = 24.dp))
+                    Text(
+                        if (apps.isEmpty()) "Не удалось найти установленные пользовательские приложения."
+                        else "По вашему запросу ничего не найдено.",
+                        modifier = Modifier.padding(vertical = 24.dp)
+                    )
                 } else {
-                    LazyColumn(modifier = Modifier.height(360.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    LazyColumn(
+                        modifier = Modifier.height(360.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
                         items(filteredApps, key = { it.packageName }) { app ->
-                            Row(Modifier.fillMaxWidth().clickable { onAppSelected(app) }.padding(vertical = 10.dp)) { Text(app.appName, Modifier.weight(1f)) }
+                            Row(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onAppSelected(app) }
+                                    .padding(vertical = 10.dp)
+                            ) {
+                                Text(app.appName, Modifier.weight(1f))
+                            }
                         }
                     }
                 }
