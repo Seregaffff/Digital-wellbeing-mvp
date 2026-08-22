@@ -52,32 +52,19 @@ fun ProfileScreen(viewModel: ProfileViewModel) {
     val uiState by viewModel.uiState.collectAsState()
     var nameInput by remember(uiState.userName) { mutableStateOf(uiState.userName) }
 
-    LaunchedEffect(Unit) { viewModel.loadTrackedApps() }
+    LaunchedEffect(Unit) { viewModel.loadProfileData() }
 
-    val achievements = listOf(
-        AchievementUi(
-            title = "Первые шаги",
-            description = "Выберите приложение для отслеживания экранного времени и настройте для него дневной лимит.",
-            unlocked = uiState.firstStepsAchievementUnlocked
-        )
-    )
-    val visibleAchievements = achievements.take(3)
+    val visibleAchievements = uiState.achievements.take(3)
 
     LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 20.dp),
+        modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(top = 20.dp, bottom = 32.dp)
     ) {
         item {
             Text("Мой профиль", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         }
-
-        item {
-            Text("Имя", fontWeight = FontWeight.SemiBold)
-        }
-
+        item { Text("Имя", fontWeight = FontWeight.SemiBold) }
         item {
             OutlinedTextField(
                 value = nameInput,
@@ -99,13 +86,17 @@ fun ProfileScreen(viewModel: ProfileViewModel) {
                 }
             )
         }
-
+        item { Text("Email", style = MaterialTheme.typography.bodyMedium) }
         item {
-            Text("Email", style = MaterialTheme.typography.bodyMedium)
-        }
-
-        item {
-            Spacer(modifier = Modifier.height(4.dp))
+            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("🔥 Streak: ${uiState.currentStreak}", fontWeight = FontWeight.SemiBold)
+                    Text("🛡️ Щитов: ${uiState.totalShields}", fontWeight = FontWeight.SemiBold)
+                }
+            }
         }
 
         item {
@@ -129,10 +120,7 @@ fun ProfileScreen(viewModel: ProfileViewModel) {
         if (uiState.trackedApps.isEmpty()) {
             item {
                 Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
-                    Text(
-                        "Пока нет отслеживаемых приложений. Добавьте до 3 приложений.",
-                        modifier = Modifier.padding(16.dp)
-                    )
+                    Text("Пока нет отслеживаемых приложений. Добавьте до 3 приложений.", modifier = Modifier.padding(16.dp))
                 }
             }
         } else {
@@ -148,27 +136,38 @@ fun ProfileScreen(viewModel: ProfileViewModel) {
 
         item {
             Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                "Мои достижения",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold
-            )
+            Text("Мои достижения", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         }
 
-        items(visibleAchievements) { achievement ->
+        items(visibleAchievements, key = { it.key }) { achievement ->
             AchievementCard(achievement)
         }
 
-        if (achievements.size > 3) {
+        if (uiState.achievements.size > 3) {
             item {
-                TextButton(
-                    onClick = { /* Full achievements screen will be added later. */ },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
+                TextButton(onClick = viewModel::showAllAchievements, modifier = Modifier.fillMaxWidth()) {
                     Text("Посмотреть все")
                 }
             }
         }
+    }
+
+    if (uiState.showAllAchievements) {
+        AlertDialog(
+            onDismissRequest = viewModel::hideAllAchievements,
+            title = { Text("Все достижения") },
+            text = {
+                LazyColumn(
+                    modifier = Modifier.height(420.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(uiState.achievements, key = { it.key }) { achievement ->
+                        AchievementCard(achievement)
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = viewModel::hideAllAchievements) { Text("Закрыть") } }
+        )
     }
 
     if (uiState.isAppPickerVisible) {
@@ -196,25 +195,13 @@ fun ProfileScreen(viewModel: ProfileViewModel) {
     }
 }
 
-data class AchievementUi(
-    val title: String,
-    val description: String,
-    val unlocked: Boolean
-)
-
 @Composable
-private fun AchievementCard(achievement: AchievementUi) {
-    val iconTint = if (achievement.unlocked) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
-    }
+private fun AchievementCard(achievement: ProfileAchievementUi) {
+    val iconTint = if (achievement.unlocked) MaterialTheme.colorScheme.primary
+    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
 
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 imageVector = Icons.Default.EmojiEvents,
                 contentDescription = null,
@@ -225,7 +212,7 @@ private fun AchievementCard(achievement: AchievementUi) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(achievement.title, fontWeight = FontWeight.Bold)
                 Text(
-                    if (achievement.unlocked) "Достижение получено!" else achievement.description,
+                    if (achievement.unlocked) "🏆 Достижение получено!" else achievement.description,
                     style = MaterialTheme.typography.bodySmall
                 )
             }
@@ -234,60 +221,29 @@ private fun AchievementCard(achievement: AchievementUi) {
 }
 
 @Composable
-private fun TrackedAppCard(
-    app: TrackedAppEntity,
-    onLimit: () -> Unit,
-    onReplace: () -> Unit,
-    onDelete: () -> Unit
-) {
+private fun TrackedAppCard(app: TrackedAppEntity, onLimit: () -> Unit, onReplace: () -> Unit, onDelete: () -> Unit) {
     val context = LocalContext.current
     val packageManager = context.packageManager
-    val iconBitmap = remember(app.packageName) {
-        packageManager.getApplicationIcon(app.packageName).toBitmapSafely(96)
-    }
+    val iconBitmap = remember(app.packageName) { packageManager.getApplicationIcon(app.packageName).toBitmapSafely(96) }
 
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Top
-            ) {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
                 Image(iconBitmap.asImageBitmap(), app.appName, Modifier.size(52.dp))
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(horizontal = 14.dp)
-                ) {
-                    Text(
-                        app.appName,
-                        fontWeight = FontWeight.SemiBold,
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Text(
-                        "Лимит: ${formatMinutes(app.dailyLimitMinutes)} в день",
-                        style = MaterialTheme.typography.bodySmall
-                    )
+                Column(modifier = Modifier.weight(1f).padding(horizontal = 14.dp)) {
+                    Text(app.appName, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.titleMedium)
+                    Text("Лимит: ${formatMinutes(app.dailyLimitMinutes)} в день", style = MaterialTheme.typography.bodySmall)
                 }
                 IconButton(onClick = onDelete) {
                     Icon(Icons.Default.Delete, contentDescription = "Удалить ${app.appName}")
                 }
             }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                TextButton(onClick = onLimit, modifier = Modifier.weight(1f)) {
-                    Text("Лимит")
-                }
-                TextButton(onClick = onReplace, modifier = Modifier.weight(1f)) {
-                    Text("Заменить")
-                }
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = onLimit, modifier = Modifier.weight(1f)) { Text("Лимит") }
+                TextButton(onClick = onReplace, modifier = Modifier.weight(1f)) { Text("Заменить") }
             }
         }
     }
@@ -323,49 +279,25 @@ private fun LimitDialog(app: TrackedAppEntity, onDismiss: () -> Unit, onSave: (I
 }
 
 @Composable
-private fun AppPickerDialog(
-    apps: List<InstalledAppUi>,
-    onDismiss: () -> Unit,
-    onAppSelected: (InstalledAppUi) -> Unit
-) {
+private fun AppPickerDialog(apps: List<InstalledAppUi>, onDismiss: () -> Unit, onAppSelected: (InstalledAppUi) -> Unit) {
     var searchQuery by remember { mutableStateOf("") }
     val filteredApps = remember(apps, searchQuery) {
         val query = searchQuery.trim().lowercase()
-        if (query.isEmpty()) apps else apps.filter {
-            it.appName.lowercase().contains(query) || it.packageName.lowercase().contains(query)
-        }
+        if (query.isEmpty()) apps else apps.filter { it.appName.lowercase().contains(query) || it.packageName.lowercase().contains(query) }
     }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Выберите приложение") },
         text = {
             Column {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    label = { Text("Поиск") }
-                )
+                OutlinedTextField(value = searchQuery, onValueChange = { searchQuery = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("Поиск") })
                 Spacer(Modifier.height(12.dp))
                 if (filteredApps.isEmpty()) {
-                    Text(
-                        if (apps.isEmpty()) "Не удалось найти установленные пользовательские приложения."
-                        else "По вашему запросу ничего не найдено.",
-                        modifier = Modifier.padding(vertical = 24.dp)
-                    )
+                    Text(if (apps.isEmpty()) "Не удалось найти установленные пользовательские приложения." else "По вашему запросу ничего не найдено.", modifier = Modifier.padding(vertical = 24.dp))
                 } else {
-                    LazyColumn(
-                        modifier = Modifier.height(360.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
+                    LazyColumn(modifier = Modifier.height(360.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         items(filteredApps, key = { it.packageName }) { app ->
-                            Row(
-                                Modifier
-                                    .fillMaxWidth()
-                                    .clickable { onAppSelected(app) }
-                                    .padding(vertical = 10.dp)
-                            ) {
+                            Row(Modifier.fillMaxWidth().clickable { onAppSelected(app) }.padding(vertical = 10.dp)) {
                                 Text(app.appName, Modifier.weight(1f))
                             }
                         }
