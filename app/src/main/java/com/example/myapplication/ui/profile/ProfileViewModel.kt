@@ -16,9 +16,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/**
- * Информация об установленном пользовательском приложении, доступном для выбора.
- */
 data class InstalledAppUi(
     val packageName: String,
     val appName: String
@@ -33,7 +30,8 @@ data class ProfileUiState(
     val replacingAppId: Int? = null,
     val userName: String = "",
     val isLimitDialogVisible: Boolean = false,
-    val editingAppId: Int? = null
+    val editingAppId: Int? = null,
+    val firstStepsAchievementUnlocked: Boolean = false
 ) {
     val canAddApp: Boolean
         get() = trackedApps.size < MAX_TRACKED_APPS
@@ -51,20 +49,17 @@ class ProfileViewModel(
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
 
     init {
-        _uiState.value = _uiState.value.copy(userName = userPreferences.getUserName())
+        _uiState.value = _uiState.value.copy(
+            userName = userPreferences.getUserName(),
+            firstStepsAchievementUnlocked = userPreferences.isFirstStepsAchievementUnlocked()
+        )
         loadTrackedApps()
     }
 
     fun loadTrackedApps() {
         viewModelScope.launch {
-            val trackedApps = withContext(Dispatchers.IO) {
-                repository.getTrackedApps()
-            }
-
-            _uiState.value = _uiState.value.copy(
-                trackedApps = trackedApps,
-                errorMessage = null
-            )
+            val trackedApps = withContext(Dispatchers.IO) { repository.getTrackedApps() }
+            _uiState.value = _uiState.value.copy(trackedApps = trackedApps, errorMessage = null)
         }
     }
 
@@ -77,15 +72,8 @@ class ProfileViewModel(
         }
 
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(
-                isLoading = true,
-                errorMessage = null
-            )
-
-            val installedApps = withContext(Dispatchers.IO) {
-                loadInstalledUserApps()
-            }
-
+            _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+            val installedApps = withContext(Dispatchers.IO) { loadInstalledUserApps() }
             _uiState.value = _uiState.value.copy(
                 installedApps = installedApps,
                 isAppPickerVisible = true,
@@ -96,10 +84,7 @@ class ProfileViewModel(
     }
 
     fun closeAppPicker() {
-        _uiState.value = _uiState.value.copy(
-            isAppPickerVisible = false,
-            replacingAppId = null
-        )
+        _uiState.value = _uiState.value.copy(isAppPickerVisible = false, replacingAppId = null)
     }
 
     fun selectApp(app: InstalledAppUi) {
@@ -118,7 +103,6 @@ class ProfileViewModel(
 
             if (replacingAppId != null) {
                 val currentApp = currentApps.firstOrNull { it.id == replacingAppId }
-
                 if (currentApp == null) {
                     _uiState.value = _uiState.value.copy(
                         isAppPickerVisible = false,
@@ -127,13 +111,7 @@ class ProfileViewModel(
                     )
                     return@launch
                 }
-
-                repository.updateApp(
-                    currentApp.copy(
-                        packageName = app.packageName,
-                        appName = app.appName
-                    )
-                )
+                repository.updateApp(currentApp.copy(packageName = app.packageName, appName = app.appName))
             } else {
                 if (currentApps.size >= MAX_TRACKED_APPS) {
                     _uiState.value = _uiState.value.copy(
@@ -141,7 +119,6 @@ class ProfileViewModel(
                     )
                     return@launch
                 }
-
                 repository.saveApp(
                     TrackedAppEntity(
                         packageName = app.packageName,
@@ -173,34 +150,21 @@ class ProfileViewModel(
     fun saveUserName(name: String) {
         val sanitized = name
             .filter { char ->
-                char in 'A'..'Z' ||
-                    char in 'a'..'z' ||
-                    char in 'А'..'Я' ||
-                    char in 'а'..'я' ||
-                    char == 'Ё' ||
-                    char == 'ё' ||
-                    char == ' ' ||
-                    char == '-'
+                char in 'A'..'Z' || char in 'a'..'z' || char in 'А'..'Я' || char in 'а'..'я' ||
+                    char == 'Ё' || char == 'ё' || char == ' ' || char == '-'
             }
             .take(30)
             .trim()
-
         userPreferences.setUserName(sanitized)
         _uiState.value = _uiState.value.copy(userName = sanitized)
     }
 
     fun openLimitEditor(appId: Int) {
-        _uiState.value = _uiState.value.copy(
-            isLimitDialogVisible = true,
-            editingAppId = appId
-        )
+        _uiState.value = _uiState.value.copy(isLimitDialogVisible = true, editingAppId = appId)
     }
 
     fun closeLimitEditor() {
-        _uiState.value = _uiState.value.copy(
-            isLimitDialogVisible = false,
-            editingAppId = null
-        )
+        _uiState.value = _uiState.value.copy(isLimitDialogVisible = false, editingAppId = null)
     }
 
     fun saveLimit(minutes: Int) {
@@ -213,11 +177,13 @@ class ProfileViewModel(
                 return@launch
             }
             repository.updateApp(app.copy(dailyLimitMinutes = safeMinutes))
+            userPreferences.unlockFirstStepsAchievement()
             _uiState.value = _uiState.value.copy(
                 trackedApps = repository.getTrackedApps(),
                 isLimitDialogVisible = false,
                 editingAppId = null,
-                errorMessage = null
+                errorMessage = null,
+                firstStepsAchievementUnlocked = true
             )
         }
     }
@@ -231,29 +197,15 @@ class ProfileViewModel(
         val intent = android.content.Intent(android.content.Intent.ACTION_MAIN).apply {
             addCategory(android.content.Intent.CATEGORY_LAUNCHER)
         }
-
-        return packageManager
-            .queryIntentActivities(intent, PackageManager.MATCH_ALL)
+        return packageManager.queryIntentActivities(intent, PackageManager.MATCH_ALL)
             .asSequence()
             .mapNotNull { resolveInfo ->
                 val appInfo = resolveInfo.activityInfo?.applicationInfo ?: return@mapNotNull null
-
-                if (appInfo.packageName == applicationContext.packageName) {
-                    return@mapNotNull null
-                }
-
+                if (appInfo.packageName == applicationContext.packageName) return@mapNotNull null
                 val isSystemApp = appInfo.flags and ApplicationInfo.FLAG_SYSTEM != 0
                 val isUpdatedSystemApp = appInfo.flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP != 0
-
-                // YouTube can be delivered as a pre-installed system app on some devices.
-                // It is still a normal user-facing, launchable app, so keep it selectable.
-                val isUserFacingSystemApp = isUpdatedSystemApp ||
-                    appInfo.packageName == YOUTUBE_PACKAGE
-
-                if (isSystemApp && !isUserFacingSystemApp) {
-                    return@mapNotNull null
-                }
-
+                val isUserFacingSystemApp = isUpdatedSystemApp || appInfo.packageName == YOUTUBE_PACKAGE
+                if (isSystemApp && !isUserFacingSystemApp) return@mapNotNull null
                 InstalledAppUi(
                     packageName = appInfo.packageName,
                     appName = resolveInfo.loadLabel(packageManager).toString()
@@ -274,7 +226,6 @@ class ProfileViewModelFactory(
     private val context: Context,
     private val repository: UsageRepository
 ) : ViewModelProvider.Factory {
-
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(ProfileViewModel::class.java)) {
@@ -284,7 +235,6 @@ class ProfileViewModelFactory(
                 userPreferences = UserPreferences(context.applicationContext)
             ) as T
         }
-
         throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
     }
 }
