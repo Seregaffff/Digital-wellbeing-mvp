@@ -58,8 +58,6 @@ fun HomeScreen(viewModel: HomeViewModel, userName: String, onOpenUsageSettings: 
                 Text("Посмотрим, как проходит твой день?")
                 ScreenTimeCard(state.totalScreenTime)
                 SavedTimeCard(state.savedTimeMinutes, state.totalSavedTimeMinutes)
-                StreakCard(state.currentStreak, state.totalShields, state.streakShields, state.weeklyShield)
-                state.achievementMessage?.let { AchievementNotice(it) }
                 SavingsPotCard(state, viewModel::allocateSavings)
                 SleepConversionCard(state.totalSavedTimeMinutes)
 
@@ -107,41 +105,6 @@ private fun SavedTimeCard(todaySavedMinutes: Int, totalSavedMinutes: Int) {
                 style = MaterialTheme.typography.bodySmall
             )
         }
-    }
-}
-
-@Composable
-private fun StreakCard(currentStreak: Int, totalShields: Int, streakShields: Int, weeklyShield: Boolean) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-    ) {
-        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("🔥 Streak", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Text(
-                if (currentStreak == 0) "Начни серию сегодня" else "$currentStreak ${streakWord(currentStreak)} подряд",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Text("🛡️ Щитов: $totalShields")
-            Text("Недельный: ${if (weeklyShield) "1" else "0"} · за стрики: $streakShields", style = MaterialTheme.typography.bodySmall)
-            Text(
-                "День без превышения продолжает серию. При превышении щит защищает серию и сгорает.",
-                style = MaterialTheme.typography.bodySmall
-            )
-        }
-    }
-}
-
-@Composable
-private fun AchievementNotice(message: String) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-    ) {
-        Text(message, modifier = Modifier.padding(16.dp), fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -238,9 +201,36 @@ private fun SleepConversionCard(totalSavedMinutes: Int) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("😴 Ещё один вариант", fontWeight = FontWeight.Bold)
             Text("Если ложиться на 30 минут раньше, за неделю можно вернуть до 3,5 часа сна.")
-            if (totalSavedMinutes >= 30) {
-                Text("Из твоей копилки это уже ${sleepBlocks} × 30 минут — до ${formatDecimalHours(weeklySleepHours)} сна за неделю.")
+            if (sleepBlocks > 0) {
+                Text("Твои ${formatTime(totalSavedMinutes)} — это до ${"%.1f".format(java.util.Locale.US, weeklySleepHours)} ч дополнительного сна в неделю.")
             }
+        }
+    }
+}
+
+private fun formatTime(minutes: Int): String {
+    val hours = minutes / 60
+    val remaining = minutes % 60
+    return when {
+        hours > 0 && remaining > 0 -> "$hours ч $remaining мин"
+        hours > 0 -> "$hours ч"
+        else -> "$remaining мин"
+    }
+}
+
+private fun AppUsageCard(name: String, usedMinutes: Int, limitMinutes: Int) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(name, fontWeight = FontWeight.Bold)
+            Text("${formatTime(usedMinutes)} из ${formatTime(limitMinutes)}")
+            LinearProgressIndicator(
+                progress = { (usedMinutes / limitMinutes.toFloat()).coerceIn(0f, 1f) },
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }
@@ -249,65 +239,13 @@ private fun SleepConversionCard(totalSavedMinutes: Int) {
 private fun ScreenTimeCard(totalMinutes: Int) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("Сегодня")
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(formatTime(totalMinutes), fontSize = 42.sp, fontWeight = FontWeight.Bold)
-            Text("общее экранное время")
-            Text("по всем приложениям на устройстве", style = MaterialTheme.typography.bodySmall)
+        Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("Общее экранное время", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(formatTime(totalMinutes), fontSize = 32.sp, fontWeight = FontWeight.Bold)
+            Text("по всем приложениям на устройстве")
         }
     }
-}
-
-@Composable
-private fun AppUsageCard(appName: String, usedMinutes: Int, limitMinutes: Int) {
-    val exceeded = limitMinutes > 0 && usedMinutes > limitMinutes
-    val progress = if (limitMinutes > 0) (usedMinutes.toFloat() / limitMinutes).coerceIn(0f, 1f) else 0f
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (exceeded) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceContainer
-        )
-    ) {
-        Column(modifier = Modifier.padding(18.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(appName, fontWeight = FontWeight.Bold)
-                Text(
-                    text = if (exceeded) "Лимит превышен" else "$usedMinutes / $limitMinutes мин",
-                    color = if (exceeded) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
-                )
-            }
-            Spacer(modifier = Modifier.height(10.dp))
-            LinearProgressIndicator(
-                progress = { progress },
-                modifier = Modifier.fillMaxWidth(),
-                color = if (exceeded) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
-            )
-            if (exceeded) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("Превышение: ${usedMinutes - limitMinutes} мин", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.SemiBold)
-            }
-        }
-    }
-}
-
-private fun formatTime(minutes: Int): String {
-    val hours = minutes / 60
-    val remainingMinutes = minutes % 60
-    return if (hours > 0) {
-        if (remainingMinutes > 0) "$hours ч $remainingMinutes мин" else "$hours ч"
-    } else "$remainingMinutes мин"
-}
-
-private fun formatDecimalHours(hours: Float): String =
-    if (hours % 1f == 0f) "${hours.toInt()} ч" else "${String.format(java.util.Locale.US, "%.1f", hours)} ч"
-
-private fun streakWord(days: Int): String = when {
-    days % 10 == 1 && days % 100 != 11 -> "день"
-    days % 10 in 2..4 && days % 100 !in 12..14 -> "дня"
-    else -> "дней"
 }
