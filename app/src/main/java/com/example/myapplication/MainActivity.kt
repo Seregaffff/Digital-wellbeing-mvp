@@ -37,13 +37,15 @@ class MainActivity : ComponentActivity() {
             dailyProgressDao = database.dailyProgressDao(),
             usageRepository = repository
         )
+        val userPreferences = UserPreferences(applicationContext)
         val gamificationRepository = GamificationRepository(
             dailyProgressDao = database.dailyProgressDao(),
-            userPreferences = UserPreferences(applicationContext)
+            userPreferences = userPreferences
         )
         val savingsRepository = SavingsRepository(
             allocationDao = database.savingsAllocationDao(),
-            savedTimeRepository = savedTimeRepository
+            savedTimeRepository = savedTimeRepository,
+            userPreferences = userPreferences
         )
 
         val homeViewModel = ViewModelProvider(
