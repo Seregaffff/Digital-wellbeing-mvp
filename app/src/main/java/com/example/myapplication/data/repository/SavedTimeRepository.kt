@@ -1,7 +1,7 @@
 package com.example.myapplication.data.repository
 
-import com.example.myapplication.data.local.DailyProgressEntity
 import com.example.myapplication.data.local.DailyProgressDao
+import com.example.myapplication.data.local.DailyProgressEntity
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -21,6 +21,11 @@ class SavedTimeRepository(
         val today = Calendar.getInstance()
         val dateKey = dateKey(today)
         val apps = usageRepository.getTrackedApps()
+
+        // Rebuild today's live snapshot from the current tracking settings.
+        // This is important when the user adds/removes/replaces an app or
+        // changes its limit: old rows from today must not remain in the sum.
+        dailyProgressDao.deleteLiveForDate(dateKey)
 
         val progress = apps.map { app ->
             val usedMinutes = usageRepository.getUsageMinutes(app.packageName)
@@ -50,9 +55,7 @@ class SavedTimeRepository(
 
         all.filter { it.dateKey < todayKey && !it.finalized }
             .forEach { progress ->
-                dailyProgressDao.upsert(
-                    progress.copy(finalized = true)
-                )
+                dailyProgressDao.upsert(progress.copy(finalized = true))
             }
     }
 
@@ -69,10 +72,7 @@ class SavedTimeRepository(
     }
 
     suspend fun getHistory(from: Calendar, to: Calendar): List<DailyProgressEntity> {
-        return dailyProgressDao.getBetween(
-            dateKey(from),
-            dateKey(to)
-        )
+        return dailyProgressDao.getBetween(dateKey(from), dateKey(to))
     }
 
     private suspend fun summaryFor(dateKey: String): DailySavedTimeSummary {
