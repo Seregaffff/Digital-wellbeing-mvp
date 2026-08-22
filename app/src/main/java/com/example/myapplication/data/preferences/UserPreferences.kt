@@ -14,8 +14,16 @@ class UserPreferences(context: Context) {
         preferences.edit().putString(KEY_USER_NAME, name.trim()).apply()
     }
 
+    fun isFirstStepsAchievementUnlocked(): Boolean =
+        preferences.getBoolean(KEY_FIRST_STEPS_ACHIEVEMENT, false)
+
+    fun unlockFirstStepsAchievement() {
+        preferences.edit().putBoolean(KEY_FIRST_STEPS_ACHIEVEMENT, true).apply()
+    }
+
     companion object {
         private const val PREFS_NAME = "user_preferences"
         private const val KEY_USER_NAME = "user_name"
+        private const val KEY_FIRST_STEPS_ACHIEVEMENT = "achievement_first_steps"
     }
 }
