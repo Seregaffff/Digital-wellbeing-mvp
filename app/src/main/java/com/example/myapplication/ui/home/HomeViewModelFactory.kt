@@ -2,10 +2,12 @@ package com.example.myapplication.ui.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import com.example.myapplication.data.repository.SavedTimeRepository
 import com.example.myapplication.data.repository.UsageRepository
 
 class HomeViewModelFactory(
-    private val repository: UsageRepository
+    private val repository: UsageRepository,
+    private val savedTimeRepository: SavedTimeRepository
 ) : ViewModelProvider.Factory {
 
     @Suppress("UNCHECKED_CAST")
@@ -20,7 +22,8 @@ class HomeViewModelFactory(
         ) {
 
             return HomeViewModel(
-                repository
+                repository = repository,
+                savedTimeRepository = savedTimeRepository
             ) as T
         }
 
