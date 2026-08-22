@@ -8,6 +8,8 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.myapplication.data.local.TrackedAppEntity
 import com.example.myapplication.data.preferences.UserPreferences
+import com.example.myapplication.data.repository.AchievementDefinition
+import com.example.myapplication.data.repository.GamificationRepository
 import com.example.myapplication.data.repository.UsageRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,6 +23,13 @@ data class InstalledAppUi(
     val appName: String
 )
 
+data class ProfileAchievementUi(
+    val key: String,
+    val title: String,
+    val description: String,
+    val unlocked: Boolean
+)
+
 data class ProfileUiState(
     val trackedApps: List<TrackedAppEntity> = emptyList(),
     val installedApps: List<InstalledAppUi> = emptyList(),
@@ -31,7 +40,11 @@ data class ProfileUiState(
     val userName: String = "",
     val isLimitDialogVisible: Boolean = false,
     val editingAppId: Int? = null,
-    val firstStepsAchievementUnlocked: Boolean = false
+    val achievements: List<ProfileAchievementUi> = emptyList(),
+    val currentStreak: Int = 0,
+    val totalShields: Int = 0,
+    val totalSavedMinutes: Int = 0,
+    val showAllAchievements: Boolean = false
 ) {
     val canAddApp: Boolean
         get() = trackedApps.size < MAX_TRACKED_APPS
@@ -42,35 +55,51 @@ private const val MAX_TRACKED_APPS = 3
 class ProfileViewModel(
     private val applicationContext: Context,
     private val repository: UsageRepository,
-    private val userPreferences: UserPreferences
+    private val userPreferences: UserPreferences,
+    private val gamificationRepository: GamificationRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProfileUiState())
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
 
     init {
-        _uiState.value = _uiState.value.copy(
-            userName = userPreferences.getUserName(),
-            firstStepsAchievementUnlocked = userPreferences.isFirstStepsAchievementUnlocked()
-        )
-        loadTrackedApps()
+        _uiState.value = _uiState.value.copy(userName = userPreferences.getUserName())
+        loadProfileData()
     }
 
-    fun loadTrackedApps() {
+    fun loadProfileData() {
         viewModelScope.launch {
+            val gamification = withContext(Dispatchers.IO) { gamificationRepository.sync() }
             val trackedApps = withContext(Dispatchers.IO) { repository.getTrackedApps() }
-            _uiState.value = _uiState.value.copy(trackedApps = trackedApps, errorMessage = null)
+            val definitions = gamificationRepository.getAchievements()
+            val achievements = definitions.map { definition ->
+                ProfileAchievementUi(
+                    key = definition.key,
+                    title = definition.title,
+                    description = definition.description,
+                    unlocked = definition.key == "first_steps"
+                        ? userPreferences.isFirstStepsAchievementUnlocked()
+                        : gamificationRepository.isAchievementUnlocked(definition.key)
+                )
+            }
+            _uiState.value = _uiState.value.copy(
+                trackedApps = trackedApps,
+                achievements = achievements,
+                currentStreak = gamification.currentStreak,
+                totalShields = gamification.totalShields,
+                totalSavedMinutes = gamification.totalSavedMinutes,
+                errorMessage = null
+            )
         }
     }
+
+    fun loadTrackedApps() = loadProfileData()
 
     fun openAppPicker(replacingAppId: Int? = null) {
         if (replacingAppId == null && !_uiState.value.canAddApp) {
-            _uiState.value = _uiState.value.copy(
-                errorMessage = "В бесплатной версии можно отслеживать максимум 3 приложения."
-            )
+            _uiState.value = _uiState.value.copy(errorMessage = "В бесплатной версии можно отслеживать максимум 3 приложения.")
             return
         }
-
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
             val installedApps = withContext(Dispatchers.IO) { loadInstalledUserApps() }
@@ -91,7 +120,6 @@ class ProfileViewModel(
         viewModelScope.launch {
             val currentApps = repository.getTrackedApps()
             val replacingAppId = _uiState.value.replacingAppId
-
             if (currentApps.any { it.packageName == app.packageName && it.id != replacingAppId }) {
                 _uiState.value = _uiState.value.copy(
                     isAppPickerVisible = false,
@@ -114,9 +142,7 @@ class ProfileViewModel(
                 repository.updateApp(currentApp.copy(packageName = app.packageName, appName = app.appName))
             } else {
                 if (currentApps.size >= MAX_TRACKED_APPS) {
-                    _uiState.value = _uiState.value.copy(
-                        errorMessage = "В бесплатной версии можно отслеживать максимум 3 приложения."
-                    )
+                    _uiState.value = _uiState.value.copy(errorMessage = "В бесплатной версии можно отслеживать максимум 3 приложения.")
                     return@launch
                 }
                 repository.saveApp(
@@ -140,21 +166,15 @@ class ProfileViewModel(
     fun deleteApp(app: TrackedAppEntity) {
         viewModelScope.launch {
             repository.deleteApp(app)
-            _uiState.value = _uiState.value.copy(
-                trackedApps = repository.getTrackedApps(),
-                errorMessage = null
-            )
+            _uiState.value = _uiState.value.copy(trackedApps = repository.getTrackedApps(), errorMessage = null)
         }
     }
 
     fun saveUserName(name: String) {
-        val sanitized = name
-            .filter { char ->
-                char in 'A'..'Z' || char in 'a'..'z' || char in 'А'..'Я' || char in 'а'..'я' ||
-                    char == 'Ё' || char == 'ё' || char == ' ' || char == '-'
-            }
-            .take(30)
-            .trim()
+        val sanitized = name.filter { char ->
+            char in 'A'..'Z' || char in 'a'..'z' || char in 'А'..'Я' || char in 'а'..'я' ||
+                char == 'Ё' || char == 'ё' || char == ' ' || char == '-'
+        }.take(30).trim()
         userPreferences.setUserName(sanitized)
         _uiState.value = _uiState.value.copy(userName = sanitized)
     }
@@ -178,14 +198,17 @@ class ProfileViewModel(
             }
             repository.updateApp(app.copy(dailyLimitMinutes = safeMinutes))
             userPreferences.unlockFirstStepsAchievement()
-            _uiState.value = _uiState.value.copy(
-                trackedApps = repository.getTrackedApps(),
-                isLimitDialogVisible = false,
-                editingAppId = null,
-                errorMessage = null,
-                firstStepsAchievementUnlocked = true
-            )
+            loadProfileData()
+            _uiState.value = _uiState.value.copy(isLimitDialogVisible = false, editingAppId = null)
         }
+    }
+
+    fun showAllAchievements() {
+        _uiState.value = _uiState.value.copy(showAllAchievements = true)
+    }
+
+    fun hideAllAchievements() {
+        _uiState.value = _uiState.value.copy(showAllAchievements = false)
     }
 
     fun clearError() {
@@ -206,10 +229,7 @@ class ProfileViewModel(
                 val isUpdatedSystemApp = appInfo.flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP != 0
                 val isUserFacingSystemApp = isUpdatedSystemApp || appInfo.packageName == YOUTUBE_PACKAGE
                 if (isSystemApp && !isUserFacingSystemApp) return@mapNotNull null
-                InstalledAppUi(
-                    packageName = appInfo.packageName,
-                    appName = resolveInfo.loadLabel(packageManager).toString()
-                )
+                InstalledAppUi(appInfo.packageName, resolveInfo.loadLabel(packageManager).toString())
             }
             .distinctBy { it.packageName }
             .sortedBy { it.appName.lowercase() }
@@ -224,7 +244,8 @@ class ProfileViewModel(
 
 class ProfileViewModelFactory(
     private val context: Context,
-    private val repository: UsageRepository
+    private val repository: UsageRepository,
+    private val gamificationRepository: GamificationRepository
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -232,7 +253,8 @@ class ProfileViewModelFactory(
             return ProfileViewModel(
                 applicationContext = context.applicationContext,
                 repository = repository,
-                userPreferences = UserPreferences(context.applicationContext)
+                userPreferences = UserPreferences(context.applicationContext),
+                gamificationRepository = gamificationRepository
             ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
