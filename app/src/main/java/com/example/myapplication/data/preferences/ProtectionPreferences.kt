@@ -7,10 +7,10 @@ class ProtectionPreferences(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     var mode: ProtectionMode
-        get() = when (prefs.getString(KEY_MODE, ProtectionMode.SOFT.name)) {
+        get() = when (prefs.getString(KEY_MODE, ProtectionMode.NONE.name)) {
             ProtectionMode.HARD.name -> ProtectionMode.HARD
-            ProtectionMode.NONE.name -> ProtectionMode.NONE
-            else -> ProtectionMode.SOFT
+            ProtectionMode.SOFT.name -> ProtectionMode.SOFT
+            else -> ProtectionMode.NONE
         }
         set(value) {
             prefs.edit().putString(KEY_MODE, value.name).apply()
