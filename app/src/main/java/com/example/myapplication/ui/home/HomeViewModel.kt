@@ -13,7 +13,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-
 data class HomeUiState(
     val totalScreenTime: Int = 0,
     val apps: List<AppUsageUi> = emptyList(),
@@ -32,10 +31,7 @@ data class HomeUiState(
     val isLoading: Boolean = false
 )
 
-data class AppUsageUi(
-    val app: TrackedAppUi,
-    val usedMinutes: Int
-)
+data class AppUsageUi(val app: TrackedAppUi, val usedMinutes: Int)
 
 data class TrackedAppUi(
     val packageName: String,
@@ -65,13 +61,12 @@ class HomeViewModel(
                 val gamification = gamificationRepository.sync()
                 val todaySavedTime = savedTimeRepository.updateToday()
                 val savings = savingsRepository.getSnapshot()
-
                 val totalMinutes = repository.getTodayTotalUsageMinutes()
                 val trackedApps = repository.getTrackedAppsUsage()
                 val dateKey = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
                 val apps = trackedApps.map { usage ->
-                    val graceActive = protectionPreferences.getSoftGraceUntil(usage.app.packageName, dateKey) > System.currentTimeMillis()
-                    val effectiveLimit = usage.app.dailyLimitMinutes + if (graceActive) SOFT_GRACE_MINUTES else 0
+                    val graceUsed = protectionPreferences.hasSoftGrace(usage.app.packageName, dateKey)
+                    val effectiveLimit = usage.app.dailyLimitMinutes + if (graceUsed) SOFT_GRACE_MINUTES else 0
                     AppUsageUi(
                         app = TrackedAppUi(
                             packageName = usage.app.packageName,
@@ -82,14 +77,12 @@ class HomeViewModel(
                         usedMinutes = usage.usedMinutes
                     )
                 }
-
                 val achievementMessage = when {
                     gamification.newlyUnlockedAchievements.isNotEmpty() -> "🏆 Новое достижение: ${gamification.newlyUnlockedAchievements.first()}"
                     gamification.shieldBurned -> "🛡️ Лимит превышен — щит сгорел. Серия сохранена."
                     gamification.streakBroken -> "Лимит превышен — щит закончился, серия прервана."
                     else -> null
                 }
-
                 _uiState.value = HomeUiState(
                     totalScreenTime = totalMinutes,
                     apps = apps,
