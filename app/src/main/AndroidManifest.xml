@@ -53,10 +53,6 @@
         </service>
 
         <receiver
-            android:name=".accessibility.HomeActionReceiver"
-            android:exported="false" />
-
-        <receiver
             android:name=".notifications.LimitNotificationReceiver"
             android:exported="false" />
         <receiver
