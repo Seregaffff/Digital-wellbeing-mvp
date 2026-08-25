@@ -1,8 +1,12 @@
 package com.example.myapplication.ui.profile
 
+import android.accessibilityservice.AccessibilityServiceInfo
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.drawable.Drawable
+import android.provider.Settings
+import android.view.accessibility.AccessibilityManager
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -29,6 +33,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -45,14 +50,24 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.myapplication.accessibility.LimitAccessibilityService
 import com.example.myapplication.data.local.TrackedAppEntity
+import com.example.myapplication.data.preferences.ProtectionMode
+import com.example.myapplication.data.preferences.ProtectionPreferences
 
 @Composable
 fun ProfileScreen(viewModel: ProfileViewModel) {
     val uiState by viewModel.uiState.collectAsState()
     var nameInput by remember(uiState.userName) { mutableStateOf(uiState.userName) }
+    val context = LocalContext.current
+    val protectionPreferences = remember { ProtectionPreferences(context) }
+    var protectionMode by remember { mutableStateOf(protectionPreferences.mode) }
+    var accessibilityEnabled by remember { mutableStateOf(isLimitAccessibilityEnabled(context)) }
 
-    LaunchedEffect(Unit) { viewModel.loadProfileData() }
+    LaunchedEffect(Unit) {
+        viewModel.loadProfileData()
+        accessibilityEnabled = isLimitAccessibilityEnabled(context)
+    }
 
     val visibleAchievements = uiState.achievements.take(3)
 
@@ -87,14 +102,55 @@ fun ProfileScreen(viewModel: ProfileViewModel) {
             )
         }
         item { Text("Email", style = MaterialTheme.typography.bodyMedium) }
+
         item {
             Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
-                Row(
+                Column(
                     modifier = Modifier.fillMaxWidth().padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text("🔥 Streak: ${uiState.currentStreak}", fontWeight = FontWeight.SemiBold)
-                    Text("🛡️ Щитов: ${uiState.totalShields}", fontWeight = FontWeight.SemiBold)
+                    Text("Защита лимитов", fontWeight = FontWeight.Bold)
+                    Text(
+                        "После достижения лимита приложение будет показывать экран блокировки.",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Text(
+                        if (accessibilityEnabled) "Служба доступности включена" else "Служба доступности не включена",
+                        color = if (accessibilityEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = {
+                                protectionMode = ProtectionMode.SOFT
+                                protectionPreferences.mode = ProtectionMode.SOFT
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) { Text("Мягкая") }
+                        OutlinedButton(
+                            onClick = {
+                                protectionMode = ProtectionMode.HARD
+                                protectionPreferences.mode = ProtectionMode.HARD
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) { Text("Жёсткая") }
+                    }
+                    Text(
+                        if (protectionMode == ProtectionMode.SOFT) {
+                            "Мягкая: после лимита можно один раз продолжить на 5 минут."
+                        } else {
+                            "Жёсткая: после лимита продолжение недоступно до следующего дня."
+                        },
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    Button(
+                        onClick = {
+                            context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(if (accessibilityEnabled) "Открыть настройки доступности" else "Включить защиту")
+                    }
                 }
             }
         }
@@ -308,6 +364,14 @@ private fun AppPickerDialog(apps: List<InstalledAppUi>, onDismiss: () -> Unit, o
         confirmButton = {},
         dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
     )
+}
+
+private fun isLimitAccessibilityEnabled(context: android.content.Context): Boolean {
+    val manager = context.getSystemService(AccessibilityManager::class.java) ?: return false
+    return manager.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK).any { info ->
+        info.resolveInfo.serviceInfo.packageName == context.packageName &&
+            info.resolveInfo.serviceInfo.name == LimitAccessibilityService::class.java.name
+    }
 }
 
 private fun formatMinutes(minutes: Int): String {
