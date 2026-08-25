@@ -1,6 +1,5 @@
 package com.example.myapplication.accessibility
 
-import android.app.Activity
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -31,6 +30,9 @@ class LimitBlockActivity : ComponentActivity() {
         val hardBlock = intent.getBooleanExtra(EXTRA_HARD_BLOCK, false)
         val usedMinutes = intent.getIntExtra(EXTRA_USED_MINUTES, 0)
         val limitMinutes = intent.getIntExtra(EXTRA_LIMIT_MINUTES, 0)
+        val dateKey = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+        val protectionPreferences = ProtectionPreferences(applicationContext)
+        val graceAlreadyUsed = protectionPreferences.hasSoftGrace(packageName, dateKey)
 
         setContent {
             MyApplicationTheme {
@@ -39,45 +41,30 @@ class LimitBlockActivity : ComponentActivity() {
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    Text(if (hardBlock) "Лимит достигнут" else "Время вышло", style = MaterialTheme.typography.headlineMedium)
+                    Text(appName, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(top = 12.dp))
+                    Text("Использовано ${formatMinutes(usedMinutes)} из ${formatMinutes(limitMinutes)}", modifier = Modifier.padding(top = 12.dp))
                     Text(
-                        if (hardBlock) "Лимит достигнут" else "Время вышло",
-                        style = MaterialTheme.typography.headlineMedium
-                    )
-                    Text(
-                        appName,
-                        style = MaterialTheme.typography.headlineSmall,
-                        modifier = Modifier.padding(top = 12.dp)
-                    )
-                    Text(
-                        "Использовано ${formatMinutes(usedMinutes)} из ${formatMinutes(limitMinutes)}",
-                        modifier = Modifier.padding(top = 12.dp)
-                    )
-                    Text(
-                        if (hardBlock) {
-                            "Доступ к приложению заблокирован до завтра."
-                        } else {
-                            "Ты достиг дневного лимита. Можно сделать короткое исключение на 5 минут."
+                        when {
+                            hardBlock -> "Доступ к приложению заблокирован до завтра."
+                            graceAlreadyUsed -> "Дополнительные 5 минут уже использованы сегодня."
+                            else -> "Ты достиг дневного лимита. Можно сделать короткое исключение на 5 минут."
                         },
                         modifier = Modifier.padding(top = 12.dp, bottom = 24.dp)
                     )
 
-                    if (!hardBlock) {
+                    if (!hardBlock && !graceAlreadyUsed) {
                         Button(onClick = {
-                            val dateKey = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
-                            ProtectionPreferences(applicationContext).setSoftGraceUntil(
+                            protectionPreferences.setSoftGraceUntil(
                                 packageName = packageName,
                                 dateKey = dateKey,
                                 untilMillis = System.currentTimeMillis() + SOFT_GRACE_MILLIS
                             )
                             finish()
-                        }) {
-                            Text("Продолжить ещё 5 минут")
-                        }
+                        }) { Text("Продолжить ещё 5 минут") }
                     }
 
-                    OutlinedButton(onClick = { moveToHome() }) {
-                        Text("Закрыть приложение")
-                    }
+                    OutlinedButton(onClick = { moveToHome() }) { Text("Закрыть приложение") }
                 }
             }
         }
