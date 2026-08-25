@@ -32,12 +32,14 @@ class LimitAccessibilityService : AccessibilityService() {
         val packageName = event?.packageName?.toString() ?: return
         if (packageName == applicationContext.packageName) return
         if (!::database.isInitialized) return
-
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
             event.eventType != AccessibilityEvent.TYPE_WINDOWS_CHANGED
         ) return
 
         scope.launch {
+            val mode = protectionPreferences.mode
+            if (mode == ProtectionMode.NONE) return@launch
+
             val app = database.trackedAppDao().getEnabledApps()
                 .firstOrNull { it.packageName == packageName }
                 ?: return@launch
@@ -55,7 +57,6 @@ class LimitAccessibilityService : AccessibilityService() {
             if (usedMinutes < app.dailyLimitMinutes) return@launch
 
             val dateKey = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
-            val mode = protectionPreferences.mode
             val graceUntil = protectionPreferences.getSoftGraceUntil(packageName, dateKey)
 
             if (mode == ProtectionMode.SOFT && graceUntil > System.currentTimeMillis()) return@launch
