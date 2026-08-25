@@ -2,6 +2,7 @@ package com.example.myapplication.ui.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.myapplication.data.preferences.ProtectionPreferences
 import com.example.myapplication.data.repository.GamificationRepository
 import com.example.myapplication.data.repository.SavedTimeRepository
 import com.example.myapplication.data.repository.SavingsCategory
@@ -11,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+
 
 data class HomeUiState(
     val totalScreenTime: Int = 0,
@@ -38,27 +40,26 @@ data class AppUsageUi(
 data class TrackedAppUi(
     val packageName: String,
     val appName: String,
-    val dailyLimitMinutes: Int
+    val dailyLimitMinutes: Int,
+    val effectiveLimitMinutes: Int = dailyLimitMinutes
 )
 
 class HomeViewModel(
     private val repository: UsageRepository,
     private val savedTimeRepository: SavedTimeRepository,
     private val gamificationRepository: GamificationRepository,
-    private val savingsRepository: SavingsRepository
+    private val savingsRepository: SavingsRepository,
+    private val protectionPreferences: ProtectionPreferences
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
-    init {
-        loadUsage()
-    }
+    init { loadUsage() }
 
     fun loadUsage() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
-
             try {
                 savedTimeRepository.finalizePreviousDays()
                 val gamification = gamificationRepository.sync()
@@ -67,24 +68,25 @@ class HomeViewModel(
 
                 val totalMinutes = repository.getTodayTotalUsageMinutes()
                 val trackedApps = repository.getTrackedAppsUsage()
+                val dateKey = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
                 val apps = trackedApps.map { usage ->
+                    val graceActive = protectionPreferences.getSoftGraceUntil(usage.app.packageName, dateKey) > System.currentTimeMillis()
+                    val effectiveLimit = usage.app.dailyLimitMinutes + if (graceActive) SOFT_GRACE_MINUTES else 0
                     AppUsageUi(
                         app = TrackedAppUi(
                             packageName = usage.app.packageName,
                             appName = usage.app.appName,
-                            dailyLimitMinutes = usage.app.dailyLimitMinutes
+                            dailyLimitMinutes = usage.app.dailyLimitMinutes,
+                            effectiveLimitMinutes = effectiveLimit
                         ),
                         usedMinutes = usage.usedMinutes
                     )
                 }
 
                 val achievementMessage = when {
-                    gamification.newlyUnlockedAchievements.isNotEmpty() ->
-                        "🏆 Новое достижение: ${gamification.newlyUnlockedAchievements.first()}"
-                    gamification.shieldBurned ->
-                        "🛡️ Лимит превышен — щит сгорел. Серия сохранена."
-                    gamification.streakBroken ->
-                        "Лимит превышен — щит закончился, серия прервана."
+                    gamification.newlyUnlockedAchievements.isNotEmpty() -> "🏆 Новое достижение: ${gamification.newlyUnlockedAchievements.first()}"
+                    gamification.shieldBurned -> "🛡️ Лимит превышен — щит сгорел. Серия сохранена."
+                    gamification.streakBroken -> "Лимит превышен — щит закончился, серия прервана."
                     else -> null
                 }
 
@@ -117,4 +119,6 @@ class HomeViewModel(
             loadUsage()
         }
     }
+
+    companion object { private const val SOFT_GRACE_MINUTES = 5 }
 }
