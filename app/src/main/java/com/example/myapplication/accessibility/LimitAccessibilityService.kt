@@ -23,6 +23,7 @@ class LimitAccessibilityService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        instance = this
         database = AppDatabase.getInstance(applicationContext)
         protectionPreferences = ProtectionPreferences(applicationContext)
     }
@@ -74,7 +75,17 @@ class LimitAccessibilityService : AccessibilityService() {
     override fun onInterrupt() = Unit
 
     override fun onDestroy() {
+        if (instance === this) instance = null
         scope.cancel()
         super.onDestroy()
+    }
+
+    companion object {
+        @Volatile
+        private var instance: LimitAccessibilityService? = null
+
+        fun performHomeAction() {
+            instance?.performGlobalAction(GLOBAL_ACTION_HOME)
+        }
     }
 }
