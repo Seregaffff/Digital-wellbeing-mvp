@@ -26,6 +26,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -63,6 +64,7 @@ fun ProfileScreen(viewModel: ProfileViewModel) {
     val protectionPreferences = remember { ProtectionPreferences(context) }
     var protectionMode by remember { mutableStateOf(protectionPreferences.mode) }
     var accessibilityEnabled by remember { mutableStateOf(isLimitAccessibilityEnabled(context)) }
+    var helpMode by remember { mutableStateOf<ProtectionMode?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.loadProfileData()
@@ -76,9 +78,7 @@ fun ProfileScreen(viewModel: ProfileViewModel) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(top = 20.dp, bottom = 32.dp)
     ) {
-        item {
-            Text("Мой профиль", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        }
+        item { Text("Мой профиль", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) }
         item { Text("Имя", fontWeight = FontWeight.SemiBold) }
         item {
             OutlinedTextField(
@@ -94,10 +94,7 @@ fun ProfileScreen(viewModel: ProfileViewModel) {
                 placeholder = { Text("Как к тебе обращаться?") },
                 supportingText = { Text("До 30 символов: буквы, пробел и дефис") },
                 trailingIcon = {
-                    TextButton(
-                        onClick = { viewModel.saveUserName(nameInput) },
-                        enabled = nameInput.trim() != uiState.userName
-                    ) { Text("Сохранить") }
+                    TextButton(onClick = { viewModel.saveUserName(nameInput) }, enabled = nameInput.trim() != uiState.userName) { Text("Сохранить") }
                 }
             )
         }
@@ -105,62 +102,36 @@ fun ProfileScreen(viewModel: ProfileViewModel) {
 
         item {
             Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
+                Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("Защита лимитов", fontWeight = FontWeight.Bold)
-                    Text(
-                        "После достижения лимита приложение будет показывать экран блокировки.",
-                        style = MaterialTheme.typography.bodySmall
-                    )
+                    Text("Выберите, что должно происходить после достижения дневного лимита.", style = MaterialTheme.typography.bodySmall)
                     Text(
                         if (accessibilityEnabled) "Служба доступности включена" else "Служба доступности не включена",
                         color = if (accessibilityEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                         fontWeight = FontWeight.SemiBold
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(
-                            onClick = {
-                                protectionMode = ProtectionMode.SOFT
-                                protectionPreferences.mode = ProtectionMode.SOFT
-                            },
-                            modifier = Modifier.weight(1f)
-                        ) { Text("Мягкая") }
-                        OutlinedButton(
-                            onClick = {
-                                protectionMode = ProtectionMode.HARD
-                                protectionPreferences.mode = ProtectionMode.HARD
-                            },
-                            modifier = Modifier.weight(1f)
-                        ) { Text("Жёсткая") }
-                    }
+                    ProtectionModeOption("Без блокировки", protectionMode == ProtectionMode.NONE, { protectionMode = ProtectionMode.NONE; protectionPreferences.mode = ProtectionMode.NONE }) { helpMode = ProtectionMode.NONE }
+                    ProtectionModeOption("Мягкая", protectionMode == ProtectionMode.SOFT, { protectionMode = ProtectionMode.SOFT; protectionPreferences.mode = ProtectionMode.SOFT }) { helpMode = ProtectionMode.SOFT }
+                    ProtectionModeOption("Жёсткая", protectionMode == ProtectionMode.HARD, { protectionMode = ProtectionMode.HARD; protectionPreferences.mode = ProtectionMode.HARD }) { helpMode = ProtectionMode.HARD }
                     Text(
-                        if (protectionMode == ProtectionMode.SOFT) {
-                            "Мягкая: после лимита можно один раз продолжить на 5 минут."
-                        } else {
-                            "Жёсткая: после лимита продолжение недоступно до следующего дня."
+                        when (protectionMode) {
+                            ProtectionMode.NONE -> "Без блокировки: приложение только отслеживает лимит и показывает статистику."
+                            ProtectionMode.SOFT -> "Мягкая: после лимита можно продолжить ещё на 5 минут."
+                            ProtectionMode.HARD -> "Жёсткая: после лимита продолжение недоступно до следующего дня."
                         },
                         style = MaterialTheme.typography.bodySmall
                     )
                     Button(
-                        onClick = {
-                            context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(if (accessibilityEnabled) "Открыть настройки доступности" else "Включить защиту")
-                    }
+                        onClick = { context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = protectionMode != ProtectionMode.NONE
+                    ) { Text(if (accessibilityEnabled) "Открыть настройки доступности" else "Включить защиту") }
                 }
             }
         }
 
         item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                 Column {
                     Text("Мои приложения", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Text("Отслеживается ${uiState.trackedApps.size} из 3", style = MaterialTheme.typography.bodySmall)
@@ -181,12 +152,7 @@ fun ProfileScreen(viewModel: ProfileViewModel) {
             }
         } else {
             items(uiState.trackedApps, key = { it.id }) { app ->
-                TrackedAppCard(
-                    app = app,
-                    onLimit = { viewModel.openLimitEditor(app.id) },
-                    onReplace = { viewModel.openAppPicker(app.id) },
-                    onDelete = { viewModel.deleteApp(app) }
-                )
+                TrackedAppCard(app = app, onLimit = { viewModel.openLimitEditor(app.id) }, onReplace = { viewModel.openAppPicker(app.id) }, onDelete = { viewModel.deleteApp(app) })
             }
         }
 
@@ -194,18 +160,20 @@ fun ProfileScreen(viewModel: ProfileViewModel) {
             Spacer(modifier = Modifier.height(8.dp))
             Text("Мои достижения", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         }
-
-        items(visibleAchievements, key = { it.key }) { achievement ->
-            AchievementCard(achievement)
-        }
-
+        items(visibleAchievements, key = { it.key }) { achievement -> AchievementCard(achievement) }
         if (uiState.achievements.size > 3) {
-            item {
-                TextButton(onClick = viewModel::showAllAchievements, modifier = Modifier.fillMaxWidth()) {
-                    Text("Посмотреть все")
-                }
-            }
+            item { TextButton(onClick = viewModel::showAllAchievements, modifier = Modifier.fillMaxWidth()) { Text("Посмотреть все") } }
         }
+    }
+
+    if (helpMode != null) {
+        val mode = helpMode!!
+        AlertDialog(
+            onDismissRequest = { helpMode = null },
+            title = { Text(modeTitle(mode)) },
+            text = { Text(modeDescription(mode)) },
+            confirmButton = { TextButton(onClick = { helpMode = null }) { Text("Понятно") } }
+        )
     }
 
     if (uiState.showAllAchievements) {
@@ -213,64 +181,56 @@ fun ProfileScreen(viewModel: ProfileViewModel) {
             onDismissRequest = viewModel::hideAllAchievements,
             title = { Text("Все достижения") },
             text = {
-                LazyColumn(
-                    modifier = Modifier.height(420.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(uiState.achievements, key = { it.key }) { achievement ->
-                        AchievementCard(achievement)
-                    }
+                LazyColumn(modifier = Modifier.height(420.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(uiState.achievements, key = { it.key }) { achievement -> AchievementCard(achievement) }
                 }
             },
             confirmButton = { TextButton(onClick = viewModel::hideAllAchievements) { Text("Закрыть") } }
         )
     }
 
-    if (uiState.isAppPickerVisible) {
-        AppPickerDialog(uiState.installedApps, viewModel::closeAppPicker, viewModel::selectApp)
-    }
-
+    if (uiState.isAppPickerVisible) AppPickerDialog(uiState.installedApps, viewModel::closeAppPicker, viewModel::selectApp)
     if (uiState.isLimitDialogVisible) {
         val app = uiState.trackedApps.firstOrNull { it.id == uiState.editingAppId }
-        if (app != null) {
-            LimitDialog(app, viewModel::closeLimitEditor, viewModel::saveLimit)
-        }
+        if (app != null) LimitDialog(app, viewModel::closeLimitEditor, viewModel::saveLimit)
     }
-
     uiState.errorMessage?.let { message ->
-        AlertDialog(
-            onDismissRequest = viewModel::clearError,
-            title = { Text("Не удалось выполнить действие") },
-            text = { Text(message) },
-            confirmButton = { TextButton(onClick = viewModel::clearError) { Text("OK") } }
-        )
+        AlertDialog(onDismissRequest = viewModel::clearError, title = { Text("Не удалось выполнить действие") }, text = { Text(message) }, confirmButton = { TextButton(onClick = viewModel::clearError) { Text("OK") } })
     }
+    if (uiState.isLoading) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+}
 
-    if (uiState.isLoading) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+@Composable
+private fun ProtectionModeOption(title: String, selected: Boolean, onClick: () -> Unit, onHelp: () -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (selected) Button(onClick = onClick, modifier = Modifier.weight(1f)) { Text(title) }
+        else OutlinedButton(onClick = onClick, modifier = Modifier.weight(1f)) { Text(title) }
+        IconButton(onClick = onHelp) { Icon(Icons.Default.HelpOutline, contentDescription = "Описание режима $title") }
     }
+}
+
+private fun modeTitle(mode: ProtectionMode): String = when (mode) {
+    ProtectionMode.NONE -> "Без блокировки"
+    ProtectionMode.SOFT -> "Мягкая блокировка"
+    ProtectionMode.HARD -> "Жёсткая блокировка"
+}
+
+private fun modeDescription(mode: ProtectionMode): String = when (mode) {
+    ProtectionMode.NONE -> "Лимиты продолжают отслеживаться, но приложение никогда не будет показывать экран блокировки. Подходит, если вы хотите только видеть статистику и Saved Time."
+    ProtectionMode.SOFT -> "После достижения лимита появляется экран блокировки. Можно дать себе ещё 5 минут. Продление не должно ломать Streak."
+    ProtectionMode.HARD -> "После достижения лимита появляется экран блокировки без возможности продолжить. Режим подходит, если вы хотите полностью соблюдать установленный лимит."
 }
 
 @Composable
 private fun AchievementCard(achievement: ProfileAchievementUi) {
-    val iconTint = if (achievement.unlocked) MaterialTheme.colorScheme.primary
-    else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
-
+    val iconTint = if (achievement.unlocked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f)
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
         Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                imageVector = Icons.Default.EmojiEvents,
-                contentDescription = null,
-                tint = iconTint,
-                modifier = Modifier.size(48.dp)
-            )
+            Icon(Icons.Default.EmojiEvents, contentDescription = null, tint = iconTint, modifier = Modifier.size(48.dp))
             Spacer(modifier = Modifier.size(14.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(achievement.title, fontWeight = FontWeight.Bold)
-                Text(
-                    if (achievement.unlocked) "🏆 Достижение получено!" else achievement.description,
-                    style = MaterialTheme.typography.bodySmall
-                )
+                Text(if (achievement.unlocked) "🏆 Достижение получено!" else achievement.description, style = MaterialTheme.typography.bodySmall)
             }
         }
     }
@@ -281,21 +241,15 @@ private fun TrackedAppCard(app: TrackedAppEntity, onLimit: () -> Unit, onReplace
     val context = LocalContext.current
     val packageManager = context.packageManager
     val iconBitmap = remember(app.packageName) { packageManager.getApplicationIcon(app.packageName).toBitmapSafely(96) }
-
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
                 Image(iconBitmap.asImageBitmap(), app.appName, Modifier.size(52.dp))
                 Column(modifier = Modifier.weight(1f).padding(horizontal = 14.dp)) {
                     Text(app.appName, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.titleMedium)
                     Text("Лимит: ${formatMinutes(app.dailyLimitMinutes)} в день", style = MaterialTheme.typography.bodySmall)
                 }
-                IconButton(onClick = onDelete) {
-                    Icon(Icons.Default.Delete, contentDescription = "Удалить ${app.appName}")
-                }
+                IconButton(onClick = onDelete) { Icon(Icons.Default.Delete, contentDescription = "Удалить ${app.appName}") }
             }
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextButton(onClick = onLimit, modifier = Modifier.weight(1f)) { Text("Лимит") }
@@ -315,21 +269,11 @@ private fun LimitDialog(app: TrackedAppEntity, onDismiss: () -> Unit, onSave: (I
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Укажи дневной лимит в минутах.")
-                OutlinedTextField(
-                    value = value,
-                    onValueChange = { value = it.filter(Char::isDigit).take(4) },
-                    singleLine = true,
-                    label = { Text("Минут в день") }
-                )
+                OutlinedTextField(value = value, onValueChange = { value = it.filter(Char::isDigit).take(4) }, singleLine = true, label = { Text("Минут в день") })
                 Text("Примеры: 30 = полчаса, 60 = 1 час, 120 = 2 часа", style = MaterialTheme.typography.bodySmall)
             }
         },
-        confirmButton = {
-            TextButton(
-                onClick = { if (minutes != null && minutes in 1..1440) onSave(minutes) },
-                enabled = minutes != null && minutes in 1..1440
-            ) { Text("Сохранить") }
-        },
+        confirmButton = { TextButton(onClick = { if (minutes != null && minutes in 1..1440) onSave(minutes) }, enabled = minutes != null && minutes in 1..1440) { Text("Сохранить") } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
     )
 }
@@ -353,9 +297,7 @@ private fun AppPickerDialog(apps: List<InstalledAppUi>, onDismiss: () -> Unit, o
                 } else {
                     LazyColumn(modifier = Modifier.height(360.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         items(filteredApps, key = { it.packageName }) { app ->
-                            Row(Modifier.fillMaxWidth().clickable { onAppSelected(app) }.padding(vertical = 10.dp)) {
-                                Text(app.appName, Modifier.weight(1f))
-                            }
+                            Row(Modifier.fillMaxWidth().clickable { onAppSelected(app) }.padding(vertical = 10.dp)) { Text(app.appName, Modifier.weight(1f)) }
                         }
                     }
                 }
@@ -369,8 +311,7 @@ private fun AppPickerDialog(apps: List<InstalledAppUi>, onDismiss: () -> Unit, o
 private fun isLimitAccessibilityEnabled(context: android.content.Context): Boolean {
     val manager = context.getSystemService(AccessibilityManager::class.java) ?: return false
     return manager.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK).any { info ->
-        info.resolveInfo.serviceInfo.packageName == context.packageName &&
-            info.resolveInfo.serviceInfo.name == LimitAccessibilityService::class.java.name
+        info.resolveInfo.serviceInfo.packageName == context.packageName && info.resolveInfo.serviceInfo.name == LimitAccessibilityService::class.java.name
     }
 }
 
