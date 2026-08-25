@@ -1,11 +1,15 @@
 package com.example.myapplication.accessibility
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -37,41 +41,84 @@ class LimitBlockActivity : ComponentActivity() {
         setContent {
             MyApplicationTheme {
                 Column(
-                    modifier = Modifier.fillMaxSize().padding(32.dp),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 28.dp, vertical = 32.dp),
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(if (hardBlock) "Лимит достигнут" else "Время вышло", style = MaterialTheme.typography.headlineMedium)
-                    Text(appName, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(top = 12.dp))
-                    Text("Использовано ${formatMinutes(usedMinutes)} из ${formatMinutes(limitMinutes)}", modifier = Modifier.padding(top = 12.dp))
+                    Text(
+                        if (hardBlock) "Лимит достигнут" else "Время вышло",
+                        style = MaterialTheme.typography.headlineMedium
+                    )
+                    Text(
+                        appName,
+                        style = MaterialTheme.typography.headlineSmall,
+                        modifier = Modifier.padding(top = 12.dp)
+                    )
+                    Text(
+                        "Использовано ${formatMinutes(usedMinutes)} из ${formatMinutes(limitMinutes)}",
+                        modifier = Modifier.padding(top = 12.dp)
+                    )
                     Text(
                         when {
                             hardBlock -> "Доступ к приложению заблокирован до завтра."
                             graceAlreadyUsed -> "Дополнительные 5 минут уже использованы сегодня."
                             else -> "Ты достиг дневного лимита. Можно сделать короткое исключение на 5 минут."
                         },
-                        modifier = Modifier.padding(top = 12.dp, bottom = 24.dp)
+                        modifier = Modifier.padding(top = 12.dp, bottom = 28.dp)
                     )
 
-                    if (!hardBlock && !graceAlreadyUsed) {
-                        Button(onClick = {
-                            protectionPreferences.setSoftGraceUntil(
-                                packageName = packageName,
-                                dateKey = dateKey,
-                                untilMillis = System.currentTimeMillis() + SOFT_GRACE_MILLIS
-                            )
-                            finish()
-                        }) { Text("Продолжить ещё 5 минут") }
+                    OutlinedButton(
+                        onClick = { closeBlockedApp() },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Закрыть приложение")
                     }
 
-                    OutlinedButton(onClick = { moveToHome() }) { Text("Закрыть приложение") }
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    OutlinedButton(
+                        onClick = { openMyApplication() },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Открыть My Application")
+                    }
+
+                    if (!hardBlock && !graceAlreadyUsed) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Button(
+                            onClick = {
+                                protectionPreferences.setSoftGraceUntil(
+                                    packageName = packageName,
+                                    dateKey = dateKey,
+                                    untilMillis = System.currentTimeMillis() + SOFT_GRACE_MILLIS
+                                )
+                                finishAndRemoveTask()
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Продолжить ещё 5 минут")
+                        }
+                    }
                 }
             }
         }
     }
 
-    private fun moveToHome() {
+    private fun closeBlockedApp() {
+        // Android does not allow a regular app to force-stop another app.
+        // AccessibilityService can reliably leave the blocked app by navigating Home.
         LimitAccessibilityService.performHomeAction()
+        finishAndRemoveTask()
+    }
+
+    private fun openMyApplication() {
+        val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
+            ?: Intent(this, com.example.myapplication.MainActivity::class.java)
+
+        launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        startActivity(launchIntent)
         finishAndRemoveTask()
     }
 
