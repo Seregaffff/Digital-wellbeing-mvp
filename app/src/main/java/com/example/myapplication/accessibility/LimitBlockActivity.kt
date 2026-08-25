@@ -2,6 +2,7 @@ package com.example.myapplication.accessibility
 
 import android.app.Activity
 import android.os.Bundle
+import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -20,7 +21,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class LimitBlockActivity : Activity() {
+class LimitBlockActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -83,8 +84,6 @@ class LimitBlockActivity : Activity() {
     }
 
     private fun moveToHome() {
-        val accessibilityService = LimitAccessibilityService::class.java
-        // The AccessibilityService performs the actual global HOME action only when available.
         sendBroadcast(android.content.Intent(ACTION_REQUEST_HOME).setPackage(packageName))
         finishAndRemoveTask()
     }
