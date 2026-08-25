@@ -71,7 +71,7 @@ class LimitBlockActivity : ComponentActivity() {
     }
 
     private fun moveToHome() {
-        sendBroadcast(android.content.Intent(ACTION_REQUEST_HOME).setPackage(packageName))
+        LimitAccessibilityService.performHomeAction()
         finishAndRemoveTask()
     }
 
@@ -91,7 +91,6 @@ class LimitBlockActivity : ComponentActivity() {
         const val EXTRA_HARD_BLOCK = "extra_hard_block"
         const val EXTRA_USED_MINUTES = "extra_used_minutes"
         const val EXTRA_LIMIT_MINUTES = "extra_limit_minutes"
-        const val ACTION_REQUEST_HOME = "com.example.myapplication.ACTION_REQUEST_HOME"
         private const val SOFT_GRACE_MILLIS = 5 * 60 * 1000L
     }
 }
