@@ -2,6 +2,7 @@ package com.example.myapplication.ui.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import com.example.myapplication.data.preferences.ProtectionPreferences
 import com.example.myapplication.data.repository.GamificationRepository
 import com.example.myapplication.data.repository.SavedTimeRepository
 import com.example.myapplication.data.repository.SavingsRepository
@@ -11,7 +12,8 @@ class HomeViewModelFactory(
     private val repository: UsageRepository,
     private val savedTimeRepository: SavedTimeRepository,
     private val gamificationRepository: GamificationRepository,
-    private val savingsRepository: SavingsRepository
+    private val savingsRepository: SavingsRepository,
+    private val protectionPreferences: ProtectionPreferences
 ) : ViewModelProvider.Factory {
 
     @Suppress("UNCHECKED_CAST")
@@ -21,10 +23,10 @@ class HomeViewModelFactory(
                 repository = repository,
                 savedTimeRepository = savedTimeRepository,
                 gamificationRepository = gamificationRepository,
-                savingsRepository = savingsRepository
+                savingsRepository = savingsRepository,
+                protectionPreferences = protectionPreferences
             ) as T
         }
-
         throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
     }
 }
