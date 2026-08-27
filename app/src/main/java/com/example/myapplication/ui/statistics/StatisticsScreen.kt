@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -48,21 +49,14 @@ fun StatisticsScreen(viewModel: StatisticsViewModel) {
         verticalArrangement = Arrangement.spacedBy(14.dp),
         contentPadding = PaddingValues(top = 20.dp, bottom = 24.dp)
     ) {
-        item {
-            Text("Статистика", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        }
+        item { Text("Статистика", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold) }
         item { Text("Экранное время выбранных приложений за последние 7 дней") }
 
         when {
-            state.isLoading -> item {
-                CircularProgressIndicator(modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp))
-            }
+            state.isLoading -> item { CircularProgressIndicator(modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp)) }
             state.apps.isEmpty() -> item {
                 Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp)) {
-                    Text(
-                        text = "Добавьте приложения в Профиле, чтобы увидеть статистику.",
-                        modifier = Modifier.padding(18.dp)
-                    )
+                    Text("Добавьте приложения в Профиле, чтобы увидеть статистику.", modifier = Modifier.padding(18.dp))
                 }
             }
             else -> items(state.apps) { app -> WeeklyAppCard(app) }
@@ -76,30 +70,25 @@ private fun WeeklyAppCard(app: AppWeeklyUsageUi) {
     var showDetails by remember { mutableStateOf(false) }
 
     Card(
-        modifier = Modifier.fillMaxWidth().clickable { showDetails = !showDetails },
+        modifier = Modifier.fillMaxWidth().heightIn(min = 300.dp).clickable { showDetails = !showDetails },
         shape = RoundedCornerShape(18.dp)
     ) {
         AnimatedContent(targetState = showDetails, label = "statistics_card") { detailsVisible ->
             if (!detailsVisible) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(
-                        text = app.app.appName,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text("Нажмите на график для подробностей", style = MaterialTheme.typography.bodySmall)
+                Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(app.app.appName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     WeeklyBarChart(app.days)
+                    Text("Нажмите на график для подробностей", style = MaterialTheme.typography.bodySmall)
                 }
             } else {
-                Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(
-                        text = app.app.appName,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
+                Column(modifier = Modifier.fillMaxWidth().padding(18.dp).heightIn(min = 264.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(app.app.appName, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     DetailRow("Общее время", formatMinutes(app.totalMinutes))
                     DetailRow("Среднее в день", formatMinutes(app.averageMinutes))
-                    DetailRow("Самый загруженный день", busiestDayText(app.days))
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text("Самый загруженный день", style = MaterialTheme.typography.bodySmall)
+                    Text(busiestDayText(app.days), fontWeight = FontWeight.SemiBold)
+                    Spacer(modifier = Modifier.weight(1f))
                     Text("Нажмите, чтобы вернуться к графику", style = MaterialTheme.typography.bodySmall)
                 }
             }
@@ -109,10 +98,7 @@ private fun WeeklyAppCard(app: AppWeeklyUsageUi) {
 
 @Composable
 private fun DetailRow(title: String, value: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(title)
         Text(value, fontWeight = FontWeight.SemiBold)
     }
@@ -129,7 +115,7 @@ private fun WeeklyBarChart(days: List<WeeklyDayUi>) {
     val maxMinutes = (days.maxOfOrNull { it.totalMinutes } ?: 0).coerceAtLeast(1)
 
     Row(
-        modifier = Modifier.fillMaxWidth().height(150.dp),
+        modifier = Modifier.fillMaxWidth().heightIn(min = 160.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.Bottom
     ) {
@@ -156,11 +142,7 @@ private fun WeeklyBarChart(days: List<WeeklyDayUi>) {
 
 private fun formatDate(timestamp: Long): String {
     val calendar = java.util.Calendar.getInstance().apply { timeInMillis = timestamp }
-    return String.format(
-        "%02d.%02d",
-        calendar.get(java.util.Calendar.DAY_OF_MONTH),
-        calendar.get(java.util.Calendar.MONTH) + 1
-    )
+    return String.format("%02d.%02d", calendar.get(java.util.Calendar.DAY_OF_MONTH), calendar.get(java.util.Calendar.MONTH) + 1)
 }
 
 private fun formatMinutes(minutes: Int): String {
