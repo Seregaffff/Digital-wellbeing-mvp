@@ -23,9 +23,13 @@ class ProtectionPreferences(context: Context) {
         prefs.edit().putLong("$KEY_GRACE:$dateKey:$packageName", untilMillis).apply()
     }
 
-    /** Returns true when the user has granted the 5-minute soft extension for this app/day. */
+    /** Returns true when the user has already granted the 5-minute extension today. */
     fun hasSoftGrace(packageName: String, dateKey: String): Boolean =
-        prefs.getLong("$KEY_GRACE:$dateKey:$packageName", 0L) > 0L
+        getSoftGraceUntil(packageName, dateKey) > 0L
+
+    /** Returns true only while the temporary 5-minute extension is still active. */
+    fun isSoftGraceActive(packageName: String, dateKey: String): Boolean =
+        getSoftGraceUntil(packageName, dateKey) > System.currentTimeMillis()
 
     companion object {
         private const val PREFS_NAME = "protection_preferences"
