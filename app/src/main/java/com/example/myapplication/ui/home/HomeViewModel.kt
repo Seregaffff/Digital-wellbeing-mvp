@@ -65,8 +65,8 @@ class HomeViewModel(
                 val trackedApps = repository.getTrackedAppsUsage()
                 val dateKey = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date())
                 val apps = trackedApps.map { usage ->
-                    val graceUsed = protectionPreferences.hasSoftGrace(usage.app.packageName, dateKey)
-                    val effectiveLimit = usage.app.dailyLimitMinutes + if (graceUsed) SOFT_GRACE_MINUTES else 0
+                    val graceActive = protectionPreferences.isSoftGraceActive(usage.app.packageName, dateKey)
+                    val effectiveLimit = usage.app.dailyLimitMinutes + if (graceActive) SOFT_GRACE_MINUTES else 0
                     AppUsageUi(
                         app = TrackedAppUi(
                             packageName = usage.app.packageName,
