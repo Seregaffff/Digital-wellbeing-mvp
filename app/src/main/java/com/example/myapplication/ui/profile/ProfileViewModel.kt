@@ -40,12 +40,16 @@ data class ProfileUiState(
     val currentStreak: Int = 0,
     val totalShields: Int = 0,
     val totalSavedMinutes: Int = 0,
-    val showAllAchievements: Boolean = false
+    val showAllAchievements: Boolean = false,
+    val recommendedLimitMinutes: Int? = null,
+    val recommendationAverageMinutes: Int? = null,
+    val recommendationDays: Int = 0
 ) {
     val canAddApp: Boolean get() = trackedApps.size < MAX_TRACKED_APPS
 }
 
 private const val MAX_TRACKED_APPS = 3
+private const val MAX_DAILY_LIMIT_MINUTES = 12 * 60
 
 class ProfileViewModel(
     private val applicationContext: Context,
@@ -114,22 +118,14 @@ class ProfileViewModel(
             val currentApps = repository.getTrackedApps()
             val replacingAppId = _uiState.value.replacingAppId
             if (currentApps.any { it.packageName == app.packageName && it.id != replacingAppId }) {
-                _uiState.value = _uiState.value.copy(
-                    isAppPickerVisible = false,
-                    replacingAppId = null,
-                    errorMessage = "Это приложение уже отслеживается."
-                )
+                _uiState.value = _uiState.value.copy(isAppPickerVisible = false, replacingAppId = null, errorMessage = "Это приложение уже отслеживается.")
                 return@launch
             }
 
             if (replacingAppId != null) {
                 val currentApp = currentApps.firstOrNull { it.id == replacingAppId }
                 if (currentApp == null) {
-                    _uiState.value = _uiState.value.copy(
-                        isAppPickerVisible = false,
-                        replacingAppId = null,
-                        errorMessage = "Не удалось найти приложение для замены."
-                    )
+                    _uiState.value = _uiState.value.copy(isAppPickerVisible = false, replacingAppId = null, errorMessage = "Не удалось найти приложение для замены.")
                     return@launch
                 }
                 repository.updateApp(currentApp.copy(packageName = app.packageName, appName = app.appName))
@@ -138,21 +134,10 @@ class ProfileViewModel(
                     _uiState.value = _uiState.value.copy(errorMessage = "В бесплатной версии можно отслеживать максимум 3 приложения.")
                     return@launch
                 }
-                repository.saveApp(
-                    TrackedAppEntity(
-                        packageName = app.packageName,
-                        appName = app.appName,
-                        dailyLimitMinutes = DEFAULT_DAILY_LIMIT_MINUTES
-                    )
-                )
+                repository.saveApp(TrackedAppEntity(packageName = app.packageName, appName = app.appName, dailyLimitMinutes = DEFAULT_DAILY_LIMIT_MINUTES))
             }
 
-            _uiState.value = _uiState.value.copy(
-                trackedApps = repository.getTrackedApps(),
-                isAppPickerVisible = false,
-                replacingAppId = null,
-                errorMessage = null
-            )
+            _uiState.value = _uiState.value.copy(trackedApps = repository.getTrackedApps(), isAppPickerVisible = false, replacingAppId = null, errorMessage = null)
         }
     }
 
@@ -165,24 +150,38 @@ class ProfileViewModel(
 
     fun saveUserName(name: String) {
         val sanitized = name.filter { char ->
-            char in 'A'..'Z' || char in 'a'..'z' || char in 'А'..'Я' || char in 'а'..'я' ||
-                char == 'Ё' || char == 'ё' || char == ' ' || char == '-'
+            char in 'A'..'Z' || char in 'a'..'z' || char in 'А'..'Я' || char in 'а'..'я' || char == 'Ё' || char == 'ё' || char == ' ' || char == '-'
         }.take(30).trim()
         userPreferences.setUserName(sanitized)
         _uiState.value = _uiState.value.copy(userName = sanitized)
     }
 
     fun openLimitEditor(appId: Int) {
-        _uiState.value = _uiState.value.copy(isLimitDialogVisible = true, editingAppId = appId)
+        viewModelScope.launch {
+            val recommendation = calculateRecommendation(appId)
+            _uiState.value = _uiState.value.copy(
+                isLimitDialogVisible = true,
+                editingAppId = appId,
+                recommendedLimitMinutes = recommendation?.recommendedMinutes,
+                recommendationAverageMinutes = recommendation?.averageMinutes,
+                recommendationDays = recommendation?.days ?: 0
+            )
+        }
     }
 
     fun closeLimitEditor() {
-        _uiState.value = _uiState.value.copy(isLimitDialogVisible = false, editingAppId = null)
+        _uiState.value = _uiState.value.copy(
+            isLimitDialogVisible = false,
+            editingAppId = null,
+            recommendedLimitMinutes = null,
+            recommendationAverageMinutes = null,
+            recommendationDays = 0
+        )
     }
 
     fun saveLimit(minutes: Int) {
         val appId = _uiState.value.editingAppId ?: return
-        val safeMinutes = minutes.coerceIn(1, 24 * 60)
+        val safeMinutes = minutes.coerceIn(1, MAX_DAILY_LIMIT_MINUTES)
         viewModelScope.launch {
             val app = repository.getTrackedApps().firstOrNull { it.id == appId }
             if (app == null) {
@@ -191,28 +190,30 @@ class ProfileViewModel(
             }
             repository.updateApp(app.copy(dailyLimitMinutes = safeMinutes))
             userPreferences.unlockFirstStepsAchievement()
-            _uiState.value = _uiState.value.copy(isLimitDialogVisible = false, editingAppId = null)
+            closeLimitEditor()
             loadProfileData()
         }
     }
 
-    fun showAllAchievements() {
-        _uiState.value = _uiState.value.copy(showAllAchievements = true)
-    }
+    fun showAllAchievements() { _uiState.value = _uiState.value.copy(showAllAchievements = true) }
+    fun hideAllAchievements() { _uiState.value = _uiState.value.copy(showAllAchievements = false) }
+    fun clearError() { _uiState.value = _uiState.value.copy(errorMessage = null) }
 
-    fun hideAllAchievements() {
-        _uiState.value = _uiState.value.copy(showAllAchievements = false)
-    }
+    private suspend fun calculateRecommendation(appId: Int): Recommendation? = withContext(Dispatchers.IO) {
+        val app = repository.getTrackedApps().firstOrNull { it.id == appId } ?: return@withContext null
+        val week = repository.getWeeklyTrackedUsage()
+        val values = week.mapNotNull { day -> day.usageByPackage[app.packageName] }.filter { it > 0 }
+        if (values.size < 3) return@withContext null
 
-    fun clearError() {
-        _uiState.value = _uiState.value.copy(errorMessage = null)
+        val average = values.average().toInt().coerceAtLeast(1)
+        val reduction = if (values.size >= 7) 0.20 else 0.15
+        val recommended = (average * (1.0 - reduction)).toInt().coerceIn(1, MAX_DAILY_LIMIT_MINUTES)
+        Recommendation(average, recommended, values.size)
     }
 
     private fun loadInstalledUserApps(): List<InstalledAppUi> {
         val packageManager = applicationContext.packageManager
-        val intent = android.content.Intent(android.content.Intent.ACTION_MAIN).apply {
-            addCategory(android.content.Intent.CATEGORY_LAUNCHER)
-        }
+        val intent = android.content.Intent(android.content.Intent.ACTION_MAIN).apply { addCategory(android.content.Intent.CATEGORY_LAUNCHER) }
         return packageManager.queryIntentActivities(intent, PackageManager.MATCH_ALL)
             .asSequence()
             .mapNotNull { resolveInfo ->
@@ -228,6 +229,8 @@ class ProfileViewModel(
             .sortedBy { it.appName.lowercase() }
             .toList()
     }
+
+    private data class Recommendation(val averageMinutes: Int, val recommendedMinutes: Int, val days: Int)
 
     companion object {
         private const val DEFAULT_DAILY_LIMIT_MINUTES = 60
