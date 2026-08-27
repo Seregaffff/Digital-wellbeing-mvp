@@ -52,7 +52,6 @@ fun HomeScreen(viewModel: HomeViewModel, userName: String, onOpenUsageSettings: 
                 ScreenTimeCard(state.totalScreenTime)
                 SavedTimeCard(state.savedTimeMinutes, state.totalSavedTimeMinutes)
                 SavingsPotCard(state, viewModel::allocateSavings)
-                SleepConversionCard(state.totalSavedTimeMinutes)
                 Text("Твои приложения", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 if (state.apps.isEmpty()) {
                     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
@@ -122,19 +121,6 @@ private fun SavingsGoalRow(emoji: String, title: String, allocatedMinutes: Int, 
     }
 }
 
-@Composable
-private fun SleepConversionCard(totalSavedMinutes: Int) {
-    val sleepBlocks = totalSavedMinutes / 30
-    val weeklySleepHours = sleepBlocks * 0.5f * 7f
-    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("😴 Ещё один вариант", fontWeight = FontWeight.Bold)
-            Text("Если ложиться на 30 минут раньше, за неделю можно вернуть до 3,5 часа сна.")
-            if (sleepBlocks > 0) Text("Твои ${formatTime(totalSavedMinutes)} — это до ${"%.1f".format(java.util.Locale.US, weeklySleepHours)} ч дополнительного сна в неделю.")
-        }
-    }
-}
-
 private fun formatTime(minutes: Int): String {
     val hours = minutes / 60
     val remaining = minutes % 60
@@ -147,16 +133,13 @@ private fun formatTime(minutes: Int): String {
 
 @Composable
 private fun AppUsageCard(name: String, usedMinutes: Int, configuredLimitMinutes: Int, effectiveLimitMinutes: Int) {
-    val limitText = if (effectiveLimitMinutes > configuredLimitMinutes) {
-        "${formatTime(usedMinutes)} из ${formatTime(effectiveLimitMinutes)} (лимит ${formatTime(configuredLimitMinutes)} + 5 мин)"
-    } else {
-        "${formatTime(usedMinutes)} из ${formatTime(configuredLimitMinutes)}"
-    }
+    val safeEffectiveLimit = effectiveLimitMinutes.coerceAtLeast(1)
+    val limitText = "${formatTime(usedMinutes)} из ${formatTime(safeEffectiveLimit)}"
     Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(name, fontWeight = FontWeight.Bold)
             Text(limitText)
-            LinearProgressIndicator(progress = { (usedMinutes / effectiveLimitMinutes.toFloat()).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
+            LinearProgressIndicator(progress = { (usedMinutes / safeEffectiveLimit.toFloat()).coerceIn(0f, 1f) }, modifier = Modifier.fillMaxWidth())
         }
     }
 }
